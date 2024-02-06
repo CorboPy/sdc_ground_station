@@ -13,3 +13,70 @@
 # 4. Live TCAM stream function
 
 # https://www.youtube.com/watch?v=79dlpK03t30&list=PLGs0VKk2DiYxdMjCJmcP6jt4Yw6OHK85O&index=48
+
+# process 1 - sending messages
+
+from datetime import datetime
+import time
+import socket
+import json
+from multiprocessing import Process, managers
+import numpy as np
+from funcs import *
+
+data_list=["TCAM","VOLT","TEMP"] # For additional intentifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
+cmmd_list=["AOCS","CMD2","CMD3"] # For additional intentifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
+
+server_hostname = 'TABLET-9A2B0OP7'     # Can get around DHCP by knowing server host name? 
+# Finding server IP
+try:
+    server_ip = str(socket.gethostbyname(server_hostname)) 
+except:
+    print("Server not found")
+
+# Server IP found
+print("Server found at IP ", server_ip)
+# Setting up client socket
+GROUNDClient = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+buffersize = 1024
+
+while True:
+    user_input = input("Please input a command: 'DATA' for data request, 'COMMAND' to send a command, 'STREAM' for TCAM stream, 'SHUTDOWN' to shutdown server (implement full Pi p-off later), 'EXIT' to close client")
+
+    if (user_input.lower() == "command"):   #check command first, want to be quick
+        print("command...")
+        #need to check/start p2
+    
+    elif (user_input.lower() == "data"):
+        confirm_data = 'n'
+        while (confirm_data.lower() != 'y'):
+            confirm_data = input("Please confirm dataconfig.json is configured correctly: Y/N")
+        data_req = get_data_req()
+        if data_req == None:
+            print("Error, resetting...")
+        else:
+            msg = json.dumps(data_req)
+            GROUNDClient.sendto(msg,server_ip)
+        #need to check/start p2
+
+    elif (user_input.lower() == "stream"):
+        confirm_stream = input("STREAM: To start, type 'True'. To end, type 'End'.")
+        if confirm_stream.lower() == 'true':
+            msg = json.dumps({"STREAM":True})
+            GROUNDClient.sendto(msg,server_ip)
+        elif confirm_stream.lower() == 'false':
+            msg = json.dumps({"STREAM":False})
+            GROUNDClient.sendto(msg,server_ip)
+        print("stream...")
+        #need to check/start/shutdown p2
+    
+    elif (user_input.lower() == "shutdown"):
+        print("shutting down server....")
+        #need to check/start p2
+
+    elif (user_input.lower() == "exit"):
+        print("Ending client script")
+        #need to check/shutdown other processes
+        break
+    else:
+        print("Unidentified input, please try again.")
