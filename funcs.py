@@ -13,12 +13,20 @@ def analysis(msg):
     #this will be painful
 
     # Plotting
-    matrix = msg["STREAM"]
+    matrix = msg["TCAM"]
     plt.imshow(matrix,cmap='hot',interpolation='hermite')
     plt.colorbar()
-    plt.show()
+    plt.savefig('tcam.png')
+    #plt.show()
+
+    volts = msg["VOLT"]
+    curr = msg["CURR"]
+    temp = msg["TEMP"]
+    # time?
 
     txt_string = "Voltage: %d \nCurrent: %d \nTemp: %d \nAAAAAA: %d" % (volts,curr,temp,AAAAAA)
+    with open('health.txt', 'w') as f:
+        f.writelines(txt_string)
     # Write txt string to .txt here
 
 
