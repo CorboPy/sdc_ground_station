@@ -2,9 +2,8 @@
 
 # CLIENT PROCESSES
 # 1. Default. User input() OR menu system for messages to server. Starts 2 once message is sent. Time wait before can send next message? Can only send one request at a time
-# 2. Listening for recieved messages and distributing to other processes below. If "TCAM stream" json, send to 3. If "data snapshot" json, send to 4.
-# 3. Plot TCAM data from recieved json string
-# 4. Parse recieved data or snapshot of TCAM to determine evacuation areas. For TCAM snapshot, need to write a .txt with columns "location", "temp", "safe or evacuate?" for all locations
+# 2. (loop) Listening for recieved messages and distributing to other processes below. If "TCAM stream" json, is quickly plotted. If "data snapshot" json, send to 3.
+# 3. Parse recieved data or snapshot of TCAM to determine evacuation areas. For TCAM snapshot, need to write a .txt with columns "location", "temp", "safe or evacuate?" for all locations
 
 # SERVER PROCESSES
 # 1. Default. Waits for connection from client. If it's a command, start process 2. If data req, start process 3. If live TCAM stream (TRUE), start process 4. If live TCAM stream (FALSE), safely end process 4. If shutdown, run shutdown function on this process, ensuring other processes are shut down safely.
@@ -22,29 +21,34 @@ from datetime import datetime
 import time
 import socket
 import json
-from multiprocessing import Process, managers
+import threading
 import numpy as np
 from funcs import *
+import matplotlib.pyplot as plt
 
 data_list=["TCAM","VOLT","TEMP"] # For additional intentifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
 cmmd_list=["AOCS","CMD2","CMD3"] # For additional intentifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
 cmmd_params=[3,2,1]     # NUMBER OF PARAMS FOR COMMAND IN cmmd_list (MUST BE IN SAME ORDER!!!)
 
 server_hostname = 'TABLET-9A2B0OP7'     # Can get around DHCP by knowing server host name? 
-# Finding server IP
-try:
-    server_ip = socket.gethostbyname(server_hostname)
-    print("Server found at IP ", server_ip)
-except:
-    print("Server not found")
 
-server_ip = input("Please input the server IP manually: ")
-
-# Server IP found
+check_ip = True
+while check_ip:
+    server_ip = input("Please input the server IP manually: ")
+    try:
+        socket.inet_aton(server_ip)
+    except socket.error:
+        print("Invalid IP address")
+        continue
+    # No errors raised. Valid IP
+    check_ip=False
 
 # Setting up client socket
 GROUNDClient = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 buffersize = 1024
+
+# Setting up t1
+t1 = threading.Thread(target=listen, args=(GROUNDClient,buffersize,server_ip,data_list))    # Listening
 
 while True:
     user_input = input("Please input a command: 'DATA' for data request, 'COMMAND' to send a command, 'STREAM' for TCAM stream, 'SHUTDOWN' to shutdown server (implement full Pi p-off later), 'EXIT' to close client: \n")
@@ -60,7 +64,11 @@ while True:
         else:       # Everything is OK
             msg = json.dumps(cmmd_req)
             GROUNDClient.sendto(msg,server_ip)
-            #need to check/start p2
+            if t1.is_alive():
+                continue
+            else:
+                t1.start()
+            #need to add try excepts to catch errors in the code above ^
     
     elif (user_input.lower() == "data"):
         confirm_data = ""
@@ -78,31 +86,46 @@ while True:
         else:
             msg = json.dumps(data_req)
             GROUNDClient.sendto(msg,server_ip)
-        #need to check/start p2
+        if t1.is_alive():
+            continue
+        else:
+            t1.start()
+        #need to add try excepts to catch errors in the code above ^
 
     elif (user_input.lower() == "stream"):
-        confirm_stream = input("STREAM: To start, type 'True'. To end, type 'End'. Or, to exit this menu, type 'Exit':")
+        confirm_stream = input("STREAM: To start, type 'Start'. To end, type 'End'. Or, to exit this menu, type 'Exit':")
         
         if confirm_stream.lower() == 'exit':
             print("Returning to menu...")
             continue
 
-        elif confirm_stream.lower() == 'true':
+        elif confirm_stream.lower() == 'start':
             msg = json.dumps({"STREAM":True})
             GROUNDClient.sendto(msg,server_ip)
-        elif confirm_stream.lower() == 'false':
+        
+        elif confirm_stream.lower() == 'end':
             msg = json.dumps({"STREAM":False})
             GROUNDClient.sendto(msg,server_ip)
-        print("stream...")
-        #need to check/start/shutdown p2
+
+        if t1.is_alive():
+            continue
+        else:
+            t1.start()
+        #need to add try excepts to catch errors in the code above ^
     
     elif (user_input.lower() == "shutdown"):
         print("shutting down server....")
-        #need to check/start p2
+        # send shut down message here
 
     elif (user_input.lower() == "exit"):
         print("Ending client script")
-        #need to check/shutdown other processes
+        #need to check/shutdown other threads, and then join them up here before breaking https://stackoverflow.com/questions/18018033/how-to-stop-a-looping-thread-in-python
+        #look at the stack overflow link? (top answer)
+        if t2.is_alive():
+            t2.join()
+        if t1.is_aive():
+            # call end looping thread func here. Print in p1 somewhere that it is shutting down
+            t1.join()
         break
     else:
         print("Unidentified input, please try again.")

@@ -1,9 +1,20 @@
 # Functions / Processes for client 
 
+# Quick plot for stream
+def quick_plot(matrix):
+    
+    plt.imshow(matrix,cmap='hot',interpolation='hermite')
+    plt.show()
 
+# Data analysis
+def analysis(msg):
+    print(msg)
+    #this will be painful
 
 # Listening in parallel process/thread
 def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming messages
+    print("t1:Starting listening thread.\n")
+    t2 = threading.Thread(target=analysis,args=(packet))
     while True:
 
         # Recieving a message:
@@ -23,9 +34,13 @@ def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming 
                 except:
                     # this indent: completely unrecognised
                     print("Data not regosnied by json.loads or utf-8")
+                    continue
 
                 # this indent: msg is utf-8
                 print("Message decoded in utf-8: ",msg)
+                continue
+
+## CODE HERE MAY BE WRONG AS POSSIBLY NEED TO ENCODE JSON STRING INTO UTF-8 TOO ##
 
             # this indent: msg is JSON
             # Need to determine if it's from stream or data request
@@ -35,11 +50,14 @@ def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming 
             if keysList[0] == "STREAM":
                 # Stream JSON {"STREAM": [8x8 matrix]}
                 print("Is a STREAM data packet")
-                # Send to plot function in process 3
+                quick_plot(msg["STREAM"])
+                # Send to plot function (still part of p1)
 
             elif len(keysList) == len(data_list):
                 # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
                 print("Is a DATA packet")
+                packet = msg
+                t2.start() ## WILL THIS WORK? DEFINED P2 BEFORE MSG WAS ESTABLISHED ##
                 # Send to data packet process 4
             else:
                 print("Error: JSON contents not recognised.")
