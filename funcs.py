@@ -4,6 +4,7 @@
 def quick_plot(matrix):
     
     plt.imshow(matrix,cmap='hot',interpolation='hermite')
+    plt.colorbar()
     plt.show()
 
 # Data analysis
@@ -11,56 +12,71 @@ def analysis(msg):
     print(msg)
     #this will be painful
 
+    # Plotting
+    matrix = msg["STREAM"]
+    plt.imshow(matrix,cmap='hot',interpolation='hermite')
+    plt.colorbar()
+    plt.show()
+
+    txt_string = "Voltage: %d \nCurrent: %d \nTemp: %d \nAAAAAA: %d" % (volts,curr,temp,AAAAAA)
+    # Write txt string to .txt here
+
+
+
 # Listening in parallel process/thread
 def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming messages
     print("t1:Starting listening thread.\n")
-    t2 = threading.Thread(target=analysis,args=(packet))
+    t2 = threading.Thread(target=analysis,args=(packet))    # getting data analysis thread ready
     while True:
 
         # Recieving a message:
         data,address = UDPClient.resvfrom(buffersize)
         now_rec = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        print("Message recieved from ",address," at ",now_rec," : ",data)
 
         # Want to make sure recieved message is actually from RPi
         if str(address) == server_ip:   
             # message is from RPi :)
 
-            try:    # try json first as want it to be quickest
-                msg = json.loads(data)
+            try:
+                data = data.decode("utf-8")
             except:
-                try:    # try utf-8 next
-                    msg = data.decode('utf-8')
-                except:
-                    # this indent: completely unrecognised
-                    print("Data not regosnied by json.loads or utf-8")
+                print("Error: msg not decodable in UTF-8. Bytes lost.")   # Might want to write to a file or print or something so that message isnt completely lost?
+                continue
+            print("Message recieved from ",address," at ",now_rec," : ",data)
+
+            if data[0] == "{" and data[-1] == "}":
+                
+                try:
+                    msg = json.loads(data)
+                    print("JSON string decoded into python library: ",msg)
+                except json.JSONDecodeError as e:
+                    print("Error: JSON string not decodable:", e) # Again, as above, might want to write to a file or print the utf-8 or something so that message isnt completely lost?
+                    print("Original message: ", data)
                     continue
 
-                # this indent: msg is utf-8
-                print("Message decoded in utf-8: ",msg)
-                continue
+                # This indent = JSON string successfully decoded into python dicitonary
+                # Need to determine if it's from stream or data request
+                # Can do so by analysing keys list
+                keysList = list(msg.keys())
 
-## CODE HERE MAY BE WRONG AS POSSIBLY NEED TO ENCODE JSON STRING INTO UTF-8 TOO ##
+                if (keysList[0] == "STREAM") and (len(keysList)==1):
+                    # Stream JSON {"STREAM": [8x8 matrix]}
+                    print("Is a STREAM data packet")
+                    quick_plot(msg["STREAM"])
+                    # Send to plot function (still part of p1)
 
-            # this indent: msg is JSON
-            # Need to determine if it's from stream or data request
-            # Can do so by analysing keys list
-            keysList = list(msg.keys())
-
-            if keysList[0] == "STREAM":
-                # Stream JSON {"STREAM": [8x8 matrix]}
-                print("Is a STREAM data packet")
-                quick_plot(msg["STREAM"])
-                # Send to plot function (still part of p1)
-
-            elif len(keysList) == len(data_list):
-                # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
-                print("Is a DATA packet")
-                packet = msg
-                t2.start() ## WILL THIS WORK? DEFINED P2 BEFORE MSG WAS ESTABLISHED ##
-                # Send to data packet process 4
+                elif len(keysList) == len(data_list):
+                    # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
+                    print("Is a DATA packet")
+                    packet = msg
+                    t2.start() 
+                    ## WILL THIS WORK? DEFINED P2(args) BEFORE MSG WAS ESTABLISHED ##
+                else:
+                    print("Error: JSON contents not recognised.")
+                
             else:
-                print("Error: JSON contents not recognised.")
+                print("Message not identified as JSON, printing:\n")
+                print(data)    
 
 
         else:
