@@ -11,8 +11,6 @@
 # 3. Data request function
 # 4. Live TCAM stream function
 
-##### CURRENT ERRORS: NEED TO ENCODE UTF-8 FOR JSON STRINGS TOO #####
-
 # https://www.youtube.com/watch?v=79dlpK03t30&list=PLGs0VKk2DiYxdMjCJmcP6jt4Yw6OHK85O&index=48
 
 # process 1 - sending messages
@@ -25,8 +23,9 @@ import threading
 import numpy as np
 from funcs import *
 import matplotlib.pyplot as plt
+import os
 
-data_list=["TCAM","VOLT","TEMP"] # For additional intentifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
+data_list=["TIME","TCAM","VOLT","TEMP"] # For additional intentifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
 cmmd_list=["AOCS","CMD2","CMD3"] # For additional intentifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
 cmmd_params=[3,2,1]     # NUMBER OF PARAMS FOR COMMAND IN cmmd_list (MUST BE IN SAME ORDER!!!)
 
@@ -61,14 +60,15 @@ while True:
         elif isinstance(cmmd_req, dict) == False:  
             print("Error: cmmd_req not a dictionary. Returning to menu...")
             continue
-        else:       # Everything is OK
-            msg = json.dumps(cmmd_req)
-            GROUNDClient.sendto(msg,server_ip)
-            if t1.is_alive():
-                continue
-            else:
-                t1.start()
-            #need to add try excepts to catch errors in the code above ^
+        #else:       Everything is OK
+        msg = json.dumps(cmmd_req)
+        GROUNDClient.sendto(msg.encode('utf-8'),server_ip)
+
+        if t1.is_alive():
+            continue
+        #else:
+        t1.start()
+        #need to add try excepts to catch errors in the code above ^
     
     elif (user_input.lower() == "data"):
         confirm_data = ""
@@ -83,17 +83,21 @@ while True:
 
         if data_req == None:
             print("Error, resetting...")
-        else:
-            msg = json.dumps(data_req)
-            GROUNDClient.sendto(msg,server_ip)
+            continue
+        #else: all is OK
+        msg = json.dumps(data_req)
+        GROUNDClient.sendto(msg.encode('utf-8'),server_ip)
         if t1.is_alive():
             continue
-        else:
-            t1.start()
+        #else:
+        t1.start()
+
         #need to add try excepts to catch errors in the code above ^
 
     elif (user_input.lower() == "stream"):
-        confirm_stream = input("STREAM: To start, type 'Start'. To end, type 'End'. Or, to exit this menu, type 'Exit':")
+        confirm_stream = None
+        while (confirm_stream.lower() == 'exit') or (confirm_stream.lower() == 'start') or (confirm_stream.lower() == 'end'):
+            confirm_stream = input("STREAM: To start, type 'Start'. To end, type 'End'. Or, to exit this menu, type 'Exit':")
         
         if confirm_stream.lower() == 'exit':
             print("Returning to menu...")
@@ -101,31 +105,38 @@ while True:
 
         elif confirm_stream.lower() == 'start':
             msg = json.dumps({"STREAM":True})
-            GROUNDClient.sendto(msg,server_ip)
+            GROUNDClient.sendto(msg.encode('utf-8'),server_ip)
         
         elif confirm_stream.lower() == 'end':
             msg = json.dumps({"STREAM":False})
-            GROUNDClient.sendto(msg,server_ip)
+            GROUNDClient.sendto(msg.encode('utf-8'),server_ip)
 
         if t1.is_alive():
             continue
-        else:
-            t1.start()
+        #else:
+        t1.start()
         #need to add try excepts to catch errors in the code above ^
     
     elif (user_input.lower() == "shutdown"):
-        print("shutting down server....")
+        print("(not yet implimented) shutting down server....")
         # send shut down message here
 
     elif (user_input.lower() == "exit"):
         print("Ending client script")
         #need to check/shutdown other threads, and then join them up here before breaking https://stackoverflow.com/questions/18018033/how-to-stop-a-looping-thread-in-python
         #look at the stack overflow link? (top answer)
-        if t2.is_alive():
-            t2.join()
+        
         if t1.is_aive():
-            # call end looping thread func here. Print in p1 somewhere that it is shutting down
+            print("Attempting to shutdown listening thread.")
+            GROUNDClient.shutdown(GROUNDClient.SHUT_RDWR)
+            print("Waiting for thread to finish...")
             t1.join()
+            print("Listening thread successfully terminated.")
+        print("\nClosing socket.")
+        GROUNDClient.close()
+
         break
     else:
         print("Unidentified input, please try again.")
+
+print("Escaped successfully. Goodbye.")
