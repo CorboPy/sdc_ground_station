@@ -1,4 +1,16 @@
 # Functions / Processes for client 
+# NEEDS NEST CLEANUP in listen()
+
+# Increment file name if exists already
+def uniquify(path):
+    filename, extension = os.path.splitext(path)
+    counter = 1
+
+    while os.path.exists(path):
+        path = filename + " (" + str(counter) + ")" + extension
+        counter += 1
+
+    return path
 
 # Quick plot for stream
 def quick_plot(matrix):
@@ -9,25 +21,42 @@ def quick_plot(matrix):
 
 # Data analysis
 def analysis(msg):
-    print(msg)
-    #this will be painful
 
-    # Plotting
-    matrix = msg["TCAM"]
-    plt.imshow(matrix,cmap='hot',interpolation='hermite')
-    plt.colorbar()
-    plt.savefig('tcam.png')
-    #plt.show()
-
+    # health.txt file (these will just be = None if not requested)
+    time = msg["TIME"]
     volts = msg["VOLT"]
     curr = msg["CURR"]
     temp = msg["TEMP"]
-    # time?
+    matrix = msg["TCAM"]
 
-    txt_string = "Voltage: %d \nCurrent: %d \nTemp: %d \nAAAAAA: %d" % (volts,curr,temp,AAAAAA)
-    with open('health.txt', 'w') as f:
+    txt_string = "Time: %d \nVoltage: %d \nCurrent: %d \nTemp: %d" % (time,volts,curr,temp)
+    # If no time requested in data request, filename will just be health.txt, need uniquify func to increment filename
+    if time != None:
+        txt_name = uniquify('health_'+time+'.txt')
+    else:
+        txt_name = uniquify('health.txt') 
+    
+    with open(txt_name, 'w') as f:
         f.writelines(txt_string)
-    # Write txt string to .txt here
+
+    if matrix == None:
+        print("Data analysis complete")
+    else:
+        # Plotting and evacuation analysis 
+        plt.imshow(matrix,cmap='hot',interpolation='hermite')
+        plt.colorbar()
+
+        if time != None:
+            figname = uniquify('tcam_'+time+'.pdf')
+        else:
+            figname = uniquify('tcam.pdf') 
+
+        plt.savefig(figname)
+        #plt.show()
+
+
+        # Write txt string to .txt here
+        print("Data analysis finished")
 
 
 
@@ -38,8 +67,13 @@ def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming 
     while True:
 
         # Recieving a message:
-        data,address = UDPClient.resvfrom(buffersize)
+        try:
+            data,address = UDPClient.resvfrom(buffersize)
+        except:
+            print("(t1) Listening thread shut down request recieved.")
+            break
         now_rec = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
 
         # Want to make sure recieved message is actually from RPi
         if str(address) == server_ip:   
@@ -58,7 +92,7 @@ def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming 
                     msg = json.loads(data)
                     print("JSON string decoded into python library: ",msg)
                 except json.JSONDecodeError as e:
-                    print("Error: JSON string not decodable:", e) # Again, as above, might want to write to a file or print the utf-8 or something so that message isnt completely lost?
+                    print("Error: JSON string not decodable:", e)
                     print("Original message: ", data)
                     continue
 
@@ -89,7 +123,12 @@ def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming 
 
         else:
             print("Error: message not from RPi (server_ip != resvfrom address)")
-
+    
+    if t2.is_alive():
+        print("(t1) Analysis thread is alive. Joining...")
+        t2.join()
+        print("(t1) Analysis thread joined.")
+    print("(t1) Ending listening thread.")
 
 ### Client -> Server ###
 # Data JSON
