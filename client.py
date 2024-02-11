@@ -25,8 +25,9 @@ from funcs import *
 import matplotlib.pyplot as plt
 import os
 
-data_list=["TIME","TCAM","VOLT","TEMP"] # For additional intentifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
-cmmd_list=["AOCS","CMD2","CMD3"] # For additional intentifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
+
+data_list=["TIME","TCAM","VOLT","TEMP"] # For additional identifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
+cmmd_list=["AOCS","CMD2","CMD3"] # For additional identifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
 cmmd_params=[3,2,1]     # NUMBER OF PARAMS FOR COMMAND IN cmmd_list (MUST BE IN SAME ORDER!!!)
 
 server_hostname = 'TABLET-9A2B0OP7'     # Can get around DHCP by knowing server host name? 
@@ -41,13 +42,15 @@ while check_ip:
         continue
     # No errors raised. Valid IP
     check_ip=False
+server_port = int(input("Please input the server port: "))
+listeningAddress = (server_ip, server_port)
 
 # Setting up client socket
 GROUNDClient = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 buffersize = 1024
 
 # Setting up t1
-t1 = threading.Thread(target=listen, args=(GROUNDClient,buffersize,server_ip,data_list))    # Listening
+t1 = threading.Thread(target=listen, args=(GROUNDClient,buffersize,listeningAddress,data_list))    # Listening
 
 while True:
     user_input = input("Please input a command: 'DATA' for data request, 'COMMAND' to send a command, 'STREAM' for TCAM stream, 'SHUTDOWN' to shutdown server (implement full Pi p-off later), 'EXIT' to close client: \n")
@@ -62,7 +65,7 @@ while True:
             continue
         #else:       Everything is OK
         msg = json.dumps(cmmd_req)
-        GROUNDClient.sendto(msg.encode('utf-8'),server_ip)
+        GROUNDClient.sendto(msg.encode('utf-8'),listeningAddress)
 
         if t1.is_alive():
             continue
@@ -71,9 +74,11 @@ while True:
         #need to add try excepts to catch errors in the code above ^
     
     elif (user_input.lower() == "data"):
-        confirm_data = ""
-        while (confirm_data.lower() != 'y') or (confirm_data.lower() != 'exit'):   # if no, need to check again
-            confirm_data = input("Please confirm dataconfig.json is configured correctly: Y/N/EXIT")
+        while True:
+            confirm_data = input("Please confirm dataconfig.json is configured correctly: Y / EXIT: ")
+            confirm_data = confirm_data.lower()
+            if (confirm_data == 'y') or (confirm_data == 'exit'):   # if no, need to check again
+                break
         
         if confirm_data.lower() == "exit":  # exit to menu
             print("Returning to menu...")
@@ -86,7 +91,7 @@ while True:
             continue
         #else: all is OK
         msg = json.dumps(data_req)
-        GROUNDClient.sendto(msg.encode('utf-8'),server_ip)
+        GROUNDClient.sendto(msg.encode('utf-8'),listeningAddress)
         if t1.is_alive():
             continue
         #else:
@@ -105,11 +110,11 @@ while True:
 
         elif confirm_stream.lower() == 'start':
             msg = json.dumps({"STREAM":True})
-            GROUNDClient.sendto(msg.encode('utf-8'),server_ip)
+            GROUNDClient.sendto(msg.encode('utf-8'),listeningAddress)
         
         elif confirm_stream.lower() == 'end':
             msg = json.dumps({"STREAM":False})
-            GROUNDClient.sendto(msg.encode('utf-8'),server_ip)
+            GROUNDClient.sendto(msg.encode('utf-8'),listeningAddress)
 
         if t1.is_alive():
             continue
@@ -126,7 +131,7 @@ while True:
         #need to check/shutdown other threads, and then join them up here before breaking https://stackoverflow.com/questions/18018033/how-to-stop-a-looping-thread-in-python
         #look at the stack overflow link? (top answer)
         
-        if t1.is_aive():
+        if t1.is_alive():
             print("Attempting to shutdown listening thread.")
             GROUNDClient.shutdown(GROUNDClient.SHUT_RDWR)
             print("Waiting for thread to finish...")

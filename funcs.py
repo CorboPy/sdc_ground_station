@@ -1,6 +1,16 @@
 # Functions / Processes for client 
 # NEEDS NEST CLEANUP in listen()
 
+from datetime import datetime
+import time
+import socket
+import json
+import threading
+import numpy as np
+from funcs import *
+import matplotlib.pyplot as plt
+import os
+
 # Increment file name if exists already
 def uniquify(path):
     filename, extension = os.path.splitext(path)
@@ -61,22 +71,21 @@ def analysis(msg):
 
 
 # Listening in parallel process/thread
-def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming messages
-    print("t1:Starting listening thread.\n")
-    t2 = threading.Thread(target=analysis,args=(packet))    # getting data analysis thread ready
+def listen(UDPClient, buffersize,listeningAddress,data_list):    # listen for incoming messages
+    print("(t1) Starting listening thread.\n")
     while True:
 
         # Recieving a message:
         try:
-            data,address = UDPClient.resvfrom(buffersize)
-        except:
-            print("(t1) Listening thread shut down request recieved.")
+            data,address = UDPClient.recvfrom(buffersize).decode('utf-8')
+        except Exception as error:
+            print("(t1) Listening thread error or shut down request: ",error)
             break
         now_rec = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
 
         # Want to make sure recieved message is actually from RPi
-        if str(address) == server_ip:   
+        if str(address) == listeningAddress[0]:   
             # message is from RPi :)
 
             try:
@@ -111,8 +120,9 @@ def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming 
                     # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
                     print("Is a DATA packet")
                     packet = msg
-                    t2.start() 
-                    ## WILL THIS WORK? DEFINED P2(args) BEFORE MSG WAS ESTABLISHED ##
+                    t2 = threading.Thread(target=analysis,args=(packet))    # getting data analysis thread ready
+                    t2.start()
+                    ## WILL THIS WORK? ##
                 else:
                     print("Error: JSON contents not recognised.")
                 
@@ -122,12 +132,12 @@ def listen(UDPClient, buffersize,server_ip,data_list):    # listen for incoming 
 
 
         else:
-            print("Error: message not from RPi (server_ip != resvfrom address)")
-    
-    if t2.is_alive():
-        print("(t1) Analysis thread is alive. Joining...")
-        t2.join()
-        print("(t1) Analysis thread joined.")
+            print("Error: message not from RPi (listeningAddress !=recvfrom address)")
+    ## IS this code even neccesary? t2 should finish on its own... ##
+    # if t2.is_alive():
+    #     print("(t1) Analysis thread is alive. Joining...")
+    #     t2.join()
+    #     print("(t1) Analysis thread joined.")
     print("(t1) Ending listening thread.")
 
 ### Client -> Server ###
@@ -138,8 +148,8 @@ def get_data_req():
     try:
         with open("dataconfig.json", "r") as jsonfile:
             config_dict = json.load(jsonfile)   # Checking it can be decoded OK before sending to server
-    except:     # Error reading file. Might want to specify type of error later
-        print("Error: dataconfig.json read unsuccessful")  
+    except Exception as error:     # Error reading file. Might want to specify type of error later
+        print("Error: dataconfig.json read unsuccessful:",error)  
         return(None)
 
     if isinstance(config_dict, dict):       
