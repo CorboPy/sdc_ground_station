@@ -35,11 +35,11 @@ def analysis(msg):
     # health.txt file (these will just be = None if not requested)
     time = msg["TIME"]
     volts = msg["VOLT"]
-    curr = msg["CURR"]
+    #curr = msg["CURR"]
     temp = msg["TEMP"]
     matrix = msg["TCAM"]
 
-    txt_string = "Time: %d \nVoltage: %d \nCurrent: %d \nTemp: %d" % (time,volts,curr,temp)
+    txt_string = "Time: %s \nVoltage: %s \nTemp: %s" % (time,volts,temp)
     # If no time requested in data request, filename will just be health.txt, need uniquify func to increment filename
     if time != None:
         txt_name = uniquify('health_'+time+'.txt')
