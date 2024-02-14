@@ -15,6 +15,11 @@
 
 # process 1 - sending messages
 
+## CURRENT ISSUES ##
+# t1 cannot be started again after timing out
+# timing out remains the only way to end t1 safely
+
+
 from datetime import datetime
 import time
 import socket
@@ -24,6 +29,9 @@ import numpy as np
 from funcs import *
 import matplotlib.pyplot as plt
 import os
+import signal
+
+
 
 
 data_list=["TIME","TCAM","VOLT","TEMP"] # For additional identifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
@@ -47,7 +55,9 @@ listeningAddress = (server_ip, server_port)
 
 # Setting up client socket
 GROUNDClient = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-buffersize = 1024
+buffersize = 2048
+
+signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 # Setting up t1
 t1 = threading.Thread(target=listen, args=(GROUNDClient,buffersize,listeningAddress,data_list))    # Listening
@@ -124,20 +134,32 @@ while True:
     
     elif (user_input.lower() == "shutdown"):
         print("(not yet implimented) shutting down server....")
+        msg = json.dumps({"SHUTDOWN":True})
+        GROUNDClient.sendto(msg.encode('utf-8'),listeningAddress)
+        if t1.is_alive():
+            continue
+        #else:
+        t1.start()
+        time.sleep(10)
+
         # send shut down message here
+        # add something to t1 so that when rpi server shutdown message has been recieved, t1 also shuts down
 
     elif (user_input.lower() == "exit"):
         print("Ending client script")
         #need to check/shutdown other threads, and then join them up here before breaking https://stackoverflow.com/questions/18018033/how-to-stop-a-looping-thread-in-python
         #look at the stack overflow link? (top answer)
         
-        if t1.is_alive():
-            print("Attempting to shutdown listening thread.")
-            GROUNDClient.shutdown(GROUNDClient.SHUT_RDWR)
-            print("Waiting for thread to finish...")
-            t1.join()
-            print("Listening thread successfully terminated.")
+        # if t1.is_alive():
+        #     print("Attempting to shutdown listening thread.")
+        #     GROUNDClient.shutdown(socket.SHUT_RDWR)
+        #     print("Waiting for thread to finish...")
+        #     t1.join()
+        #     print("Listening thread successfully terminated.")
         print("\nClosing socket.")
+        GROUNDClient.shutdown(socket.SHUT_RDWR)
+        if t1.is_alive():
+            t1.join()
         GROUNDClient.close()
 
         break

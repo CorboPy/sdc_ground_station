@@ -31,7 +31,7 @@ def quick_plot(matrix):
 
 # Data analysis
 def analysis(msg):
-
+    print("(t2) Operational. Packet = ",msg)
     # health.txt file (these will just be = None if not requested)
     time = msg["TIME"]
     volts = msg["VOLT"]
@@ -73,36 +73,39 @@ def analysis(msg):
 # Listening in parallel process/thread
 def listen(UDPClient, buffersize,listeningAddress,data_list):    # listen for incoming messages
     print("(t1) Starting listening thread.\n")
+    UDPClient.settimeout(60.0)  # Listening thread will close after 60 seconds
     while True:
-
+        print("(t1) In loop")
         # Recieving a message:
         try:
-            data,address = UDPClient.recvfrom(buffersize).decode('utf-8')
+            data,address = UDPClient.recvfrom(buffersize)
         except Exception as error:
-            print("(t1) Listening thread error or shut down request: ",error)
-            break
+            print("(t1) Listening thread error: ",error)
+            if str(error) == 'timed out':
+                break
+            continue
         now_rec = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-
+        
 
         # Want to make sure recieved message is actually from RPi
-        if str(address) == listeningAddress[0]:   
+        if str(address) == str(listeningAddress):   
             # message is from RPi :)
 
             try:
                 data = data.decode("utf-8")
             except:
-                print("Error: msg not decodable in UTF-8. Bytes lost.")   # Might want to write to a file or print or something so that message isnt completely lost?
+                print("(t1) Error: msg not decodable in UTF-8. Bytes lost.")   # Might want to write to a file or print or something so that message isnt completely lost?
                 continue
-            print("Message recieved from ",address," at ",now_rec," : ",data)
+            print("(t1) Message recieved from ",address," at ",now_rec," : ",data)
 
             if data[0] == "{" and data[-1] == "}":
                 
                 try:
                     msg = json.loads(data)
-                    print("JSON string decoded into python library: ",msg)
+                    print("(t1) JSON string decoded into python library: ",msg)
                 except json.JSONDecodeError as e:
-                    print("Error: JSON string not decodable:", e)
-                    print("Original message: ", data)
+                    print("(t1) Error: JSON string not decodable:", e)
+                    print("(t1) Original message: ", data)
                     continue
 
                 # This indent = JSON string successfully decoded into python dicitonary
@@ -112,27 +115,28 @@ def listen(UDPClient, buffersize,listeningAddress,data_list):    # listen for in
 
                 if (keysList[0] == "STREAM") and (len(keysList)==1):
                     # Stream JSON {"STREAM": [8x8 matrix]}
-                    print("Is a STREAM data packet")
+                    print("(t1) Is a STREAM data packet")
                     quick_plot(msg["STREAM"])
                     # Send to plot function (still part of p1)
 
                 elif len(keysList) == len(data_list):
                     # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
-                    print("Is a DATA packet")
+                    print("(t1) Is a DATA packet")
                     packet = msg
-                    t2 = threading.Thread(target=analysis,args=(packet))    # getting data analysis thread ready
+                    print("(t1): ",packet)
+                    t2 = threading.Thread(target=analysis,args=(packet,))    # getting data analysis thread ready
                     t2.start()
                     ## WILL THIS WORK? ##
                 else:
-                    print("Error: JSON contents not recognised.")
+                    print("(t1) Error: JSON contents not recognised.")
                 
             else:
-                print("Message not identified as JSON, printing:\n")
-                print(data)    
+                print("(t1) Message not identified as JSON\n")
+                #print(data)    
 
 
         else:
-            print("Error: message not from RPi (listeningAddress !=recvfrom address)")
+            print("(t1) Error: message not from RPi (listeningAddress !=recvfrom address)")
     ## IS this code even neccesary? t2 should finish on its own... ##
     # if t2.is_alive():
     #     print("(t1) Analysis thread is alive. Joining...")
@@ -176,6 +180,7 @@ def get_cmmd_req(cmmd_list,cmmd_params):  # For additional intentifiable command
         try:
             params = input_cmmd.split("(")[1].split(")")[0].split(",")  #list of ordered params
             params = [float(i) for i in params]     #converting args to floats
+            # MAKE SURE PARAMS IS A LIST NOT NP ARRAY
         except:
             print("Error: cannot parse inputted command. Incorrect 4-char identifier or params not floatable, or not in form (a,b,c).")
             continue
