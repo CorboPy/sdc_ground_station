@@ -25,7 +25,7 @@ def uniquify(path):
 # Quick plot for stream
 def quick_plot(matrix):
     
-    plt.imshow(matrix,cmap='hot',interpolation='hermite')
+    plt.imshow(matrix,cmap='hot')   #,interpolation='hermite')
     plt.colorbar()
     plt.show()
 
