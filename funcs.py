@@ -37,9 +37,11 @@ def analysis(msg):
     volts = msg["VOLT"]
     #curr = msg["CURR"]
     temp = msg["TEMP"]
+    ipad = msg["IPAD"]
+    wlan = msg["WLAN"]
     matrix = msg["TCAM"]
 
-    txt_string = "Time: %s \nVoltage: %s \nTemp: %s" % (time,volts,temp)
+    txt_string = "Time: %s \nVoltage: %s \nTemp: %s \nPi Ip: %s \nWLAN: %s" % (time,volts,temp,ipad,wlan)
     # If no time requested in data request, filename will just be health.txt, need uniquify func to increment filename
     if time != None:
         txt_name = uniquify('health_'+time+'.txt')
