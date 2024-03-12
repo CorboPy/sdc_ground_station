@@ -19,7 +19,6 @@
 # t1 cannot be started again after timing out
 # timing out remains the only way to end t1 safely
 
-ipp = '192.168.145.75'
 from datetime import datetime
 import time
 import socket
