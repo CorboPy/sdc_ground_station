@@ -19,7 +19,7 @@
 # t1 cannot be started again after timing out
 # timing out remains the only way to end t1 safely
 
-
+ipp = '192.168.145.75'
 from datetime import datetime
 import time
 import socket
@@ -38,19 +38,24 @@ data_list=["TIME","TCAM","VOLT","TEMP","IPAD","WLAN"] # For additional identifia
 cmmd_list=["AOCS","CMD2","CMD3"] # For additional identifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
 cmmd_params=[3,2,1]     # NUMBER OF PARAMS FOR COMMAND IN cmmd_list (MUST BE IN SAME ORDER!!!)
 
-server_hostname = 'TABLET-9A2B0OP7'     # Can get around DHCP by knowing server host name? 
+#server_hostname = 'TABLET-9A2B0OP7'     # Can get around DHCP by knowing server host name? 
 
+server_ip = '192.168.145.75' # Static IP
 check_ip = True
 while check_ip:
-    server_ip = input("Please input the server IP manually: ")
+    ip_input = input("To change IP from %s, input the server IP manually, or type 'no' to skip: " % server_ip)
+    if ip_input.lower() == 'no':
+        break
+    
     try:
-        socket.inet_aton(server_ip)
+        socket.inet_aton(ip_input)
     except socket.error:
         print("Invalid IP address")
         continue
     # No errors raised. Valid IP
     check_ip=False
-server_port = int(input("Please input the server port: "))
+    server_ip = ip_input
+server_port = 2222 #int(input("Please input the server port: "))
 listeningAddress = (server_ip, server_port)
 
 # Setting up client socket
