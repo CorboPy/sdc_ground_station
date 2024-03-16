@@ -18,6 +18,7 @@
 ## CURRENT ISSUES ##
 # t1 cannot be started again after timing out
 # timing out remains the only way to end t1 safely
+# TCP?
 
 
 from datetime import datetime
