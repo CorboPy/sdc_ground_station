@@ -25,21 +25,23 @@ def uniquify(path):
 # Quick plot for stream
 def quick_plot(matrix):
     
-    plt.imshow(matrix,cmap='hot',interpolation='hermite')
+    plt.imshow(matrix,cmap='hot')   #,interpolation='hermite')
     plt.colorbar()
     plt.show()
 
 # Data analysis
 def analysis(msg):
-    print("(t2) Operational. Packet = ",msg)
+    print("(t2) Operational. Packet recieved.")
     # health.txt file (these will just be = None if not requested)
     time = msg["TIME"]
     volts = msg["VOLT"]
     #curr = msg["CURR"]
     temp = msg["TEMP"]
+    ipad = msg["IPAD"]
+    wlan = msg["WLAN"]
     matrix = msg["TCAM"]
 
-    txt_string = "Time: %s \nVoltage: %s \nTemp: %s" % (time,volts,temp)
+    txt_string = "Time: %s \nVoltage: %s \nTemp: %s degC \nPi Ip: %s \nWLAN: %s" % (time,volts,temp,ipad,wlan)
     # If no time requested in data request, filename will just be health.txt, need uniquify func to increment filename
     if time != None:
         txt_name = uniquify('health_'+time+'.txt')
@@ -102,7 +104,7 @@ def listen(UDPClient, buffersize,listeningAddress,data_list):    # listen for in
                 
                 try:
                     msg = json.loads(data)
-                    print("(t1) JSON string decoded into python library: ",msg)
+                    print("(t1) JSON string decoded into python dict: ")
                 except json.JSONDecodeError as e:
                     print("(t1) Error: JSON string not decodable:", e)
                     print("(t1) Original message: ", data)
@@ -123,7 +125,7 @@ def listen(UDPClient, buffersize,listeningAddress,data_list):    # listen for in
                     # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
                     print("(t1) Is a DATA packet")
                     packet = msg
-                    print("(t1): ",packet)
+                    #print("(t1): ",packet)
                     t2 = threading.Thread(target=analysis,args=(packet,))    # getting data analysis thread ready
                     t2.start()
                     ## WILL THIS WORK? ##
