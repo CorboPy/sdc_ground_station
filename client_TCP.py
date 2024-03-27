@@ -26,7 +26,7 @@ import socket
 import json
 import threading
 import numpy as np
-from funcs import *
+from funcs_TCP import *
 import matplotlib.pyplot as plt
 import os
 import signal
@@ -39,14 +39,7 @@ data_list=["TIME","TCAM","VOLT","TEMP","IPAD","WLAN"] # For additional identifia
 cmmd_list=["AOCS","CMD2","CMD3"] # For additional identifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
 cmmd_params=[3,2,1]     # NUMBER OF PARAMS FOR COMMAND IN cmmd_list (MUST BE IN SAME ORDER!!!)
 
-try:
-    server_ip = socket.gethostbyname('raspberrypi')
-except socket.gaierror: 
-    # this means could not resolve the host 
-    print ("There was an error resolving the host.")
-    sys.exit() 
-
-#server_ip = '192.168.145.75' # Static IP
+server_ip = '192.168.110.122'
 check_ip = True
 while check_ip:
     ip_input = input("To change IP from %s, input the server IP manually, or type 'no' to skip: " % server_ip)

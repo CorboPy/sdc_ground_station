@@ -8,6 +8,8 @@ import json
 import threading
 import numpy as np
 from funcs import *
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 
@@ -73,19 +75,17 @@ def analysis(msg):
 
 
 # Listening in parallel process/thread
-def listen(UDPClient, buffersize,listeningAddress,data_list):    # listen for incoming messages
+def listen(TCPClient, buffersize,listeningAddress,data_list):    # listen for incoming messages
     print("(t1) Starting listening thread.\n")
-    UDPClient.settimeout(60.0)  # Listening thread will close after 60 seconds
+    TCPClient.settimeout(60.0)  # Listening thread will close after 60 seconds
     while True:
         print("(t1) In loop")
         # Recieving a message:
         try:
-            data = UDPClient.recv(buffersize)
+            data = TCPClient.recv(buffersize)
         except Exception as error:
             print("(t1) Listening thread error: ",error)
-            if str(error) == 'timed out':
-                break
-            continue
+            break #???
         now_rec = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
         try:
@@ -93,44 +93,48 @@ def listen(UDPClient, buffersize,listeningAddress,data_list):    # listen for in
         except:
             print("(t1) Error: msg not decodable in UTF-8. Bytes lost.")   # Might want to write to a file or print or something so that message isnt completely lost?
             continue
-        print("(t1) Message recieved from ",address," at ",now_rec," : ",data)
+        print("(t1) Message recieved from server at ",now_rec," : ",data,"\n")
 
-        if data[0] == "{" and data[-1] == "}":
+        try:
+            if data[0] == "{" and data[-1] == "}":
+                
+                try:
+                    msg = json.loads(data)
+                    print("(t1) JSON string decoded into python dict: ")
+                except json.JSONDecodeError as e:
+                    print("(t1) Error: JSON string not decodable:", e)
+                    print("(t1) Original message: ", data)
+                    continue
+
+                # This indent = JSON string successfully decoded into python dicitonary
+                # Need to determine if it's from stream or data request
+                # Can do so by analysing keys list
+                keysList = list(msg.keys())
+
+                if (keysList[0] == "STREAM") and (len(keysList)==1):
+                    # Stream JSON {"STREAM": [8x8 matrix]}
+                    print("(t1) Is a STREAM data packet")
+                    quick_plot(msg["STREAM"])
+                    # Send to plot function (still part of p1)
+
+                elif len(keysList) == len(data_list):
+                    # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
+                    print("(t1) Is a DATA packet")
+                    packet = msg
+                    #print("(t1): ",packet)
+                    t2 = threading.Thread(target=analysis,args=(packet,))    # getting data analysis thread ready
+                    t2.start()
+                    ## WILL THIS WORK? ##
+                else:
+                    print("(t1) Error: JSON contents not recognised.")
             
-            try:
-                msg = json.loads(data)
-                print("(t1) JSON string decoded into python dict: ")
-            except json.JSONDecodeError as e:
-                print("(t1) Error: JSON string not decodable:", e)
-                print("(t1) Original message: ", data)
-                continue
-
-            # This indent = JSON string successfully decoded into python dicitonary
-            # Need to determine if it's from stream or data request
-            # Can do so by analysing keys list
-            keysList = list(msg.keys())
-
-            if (keysList[0] == "STREAM") and (len(keysList)==1):
-                # Stream JSON {"STREAM": [8x8 matrix]}
-                print("(t1) Is a STREAM data packet")
-                quick_plot(msg["STREAM"])
-                # Send to plot function (still part of p1)
-
-            elif len(keysList) == len(data_list):
-                # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
-                print("(t1) Is a DATA packet")
-                packet = msg
-                #print("(t1): ",packet)
-                t2 = threading.Thread(target=analysis,args=(packet,))    # getting data analysis thread ready
-                t2.start()
-                ## WILL THIS WORK? ##
             else:
-                print("(t1) Error: JSON contents not recognised.")
-            
-        else:
-            print("(t1) Message not identified as JSON\n")
-            #print(data)    
-
+                continue
+                #print("(t1) Message not identified as JSON\n")
+                #print(data)    
+        except Exception as err:
+            print("Error: ",err)
+            break
 
     ## IS this code even neccesary? t2 should finish on its own... ##
     # if t2.is_alive():
