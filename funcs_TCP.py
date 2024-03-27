@@ -1,4 +1,4 @@
-# Functions / Processes for client 
+# Functions module for client 
 # NEEDS NEST CLEANUP in listen()
 
 from datetime import datetime
@@ -33,7 +33,6 @@ def quick_plot(matrix):
 
 # Data analysis
 def analysis(msg):
-    print("(t2) Operational. Packet recieved.")
     # health.txt file (these will just be = None if not requested)
     time = msg["TIME"]
     volts = msg["VOLT"]
@@ -46,7 +45,7 @@ def analysis(msg):
     txt_string = "Time: %s \nVoltage: %s \nTemp: %s degC \nPi Ip: %s \nWLAN: %s" % (time,volts,temp,ipad,wlan)
     # If no time requested in data request, filename will just be health.txt, need uniquify func to increment filename
     if time != None:
-        txt_name = uniquify('health_'+time+'.txt')
+        txt_name = uniquify('health/health_'+time+'.txt')
     else:
         txt_name = uniquify('health.txt') 
     
@@ -56,30 +55,27 @@ def analysis(msg):
     if matrix == None:
         print("Data analysis complete")
     else:
-        # Plotting and evacuation analysis 
+        # Plotting
         plt.imshow(matrix,cmap='hot',interpolation='hermite')
         plt.colorbar()
-
         if time != None:
-            figname = uniquify('tcam_'+time+'.pdf')
+            figname = uniquify('images/tcam_'+time+'.pdf')
         else:
             figname = uniquify('tcam.pdf') 
 
-        plt.savefig(figname)
+        plt.savefig(figname,dpi=200)
+        plt.close('all')
         #plt.show()
-
-
-        # Write txt string to .txt here
         print("Data analysis finished")
-
+        
 
 
 # Listening in parallel process/thread
 def listen(TCPClient, buffersize,listeningAddress,data_list):    # listen for incoming messages
     print("(t1) Starting listening thread.\n")
-    TCPClient.settimeout(60.0)  # Listening thread will close after 60 seconds
+    TCPClient.settimeout(600.0)  # Listening thread will close after 10 mins
     while True:
-        print("(t1) In loop")
+        #print("(t1) In loop")
         # Recieving a message:
         try:
             data = TCPClient.recv(buffersize)
@@ -111,6 +107,9 @@ def listen(TCPClient, buffersize,listeningAddress,data_list):    # listen for in
                 # Can do so by analysing keys list
                 keysList = list(msg.keys())
 
+
+                #everything below should be a function:
+
                 if (keysList[0] == "STREAM") and (len(keysList)==1):
                     # Stream JSON {"STREAM": [8x8 matrix]}
                     print("(t1) Is a STREAM data packet")
@@ -120,11 +119,7 @@ def listen(TCPClient, buffersize,listeningAddress,data_list):    # listen for in
                 elif len(keysList) == len(data_list):
                     # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
                     print("(t1) Is a DATA packet")
-                    packet = msg
-                    #print("(t1): ",packet)
-                    t2 = threading.Thread(target=analysis,args=(packet,))    # getting data analysis thread ready
-                    t2.start()
-                    ## WILL THIS WORK? ##
+                    analysis(msg)
                 else:
                     print("(t1) Error: JSON contents not recognised.")
             
@@ -133,14 +128,10 @@ def listen(TCPClient, buffersize,listeningAddress,data_list):    # listen for in
                 #print("(t1) Message not identified as JSON\n")
                 #print(data)    
         except Exception as err:
-            print("Error: ",err)
+            print("(t1) Error: ",err)
+            if data =='':
+                print("(t1) Lost connection to Pi.")
             break
-
-    ## IS this code even neccesary? t2 should finish on its own... ##
-    # if t2.is_alive():
-    #     print("(t1) Analysis thread is alive. Joining...")
-    #     t2.join()
-    #     print("(t1) Analysis thread joined.")
     print("(t1) Ending listening thread.")
 
 ### Client -> Server ###

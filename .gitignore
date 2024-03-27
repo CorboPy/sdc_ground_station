@@ -2,7 +2,9 @@ SDC_Rules_Requirements.pdf
 test.py
 __pycache__/
 funcs.cpython-39
-
+mac.txt
+health/
+images/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
