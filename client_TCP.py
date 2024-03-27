@@ -30,6 +30,7 @@ from funcs import *
 import matplotlib.pyplot as plt
 import os
 import signal
+import sys
 
 
 
@@ -38,8 +39,13 @@ data_list=["TIME","TCAM","VOLT","TEMP","IPAD","WLAN"] # For additional identifia
 cmmd_list=["AOCS","CMD2","CMD3"] # For additional identifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
 cmmd_params=[3,2,1]     # NUMBER OF PARAMS FOR COMMAND IN cmmd_list (MUST BE IN SAME ORDER!!!)
 
-#server_hostname = 'TABLET-9A2B0OP7'     # Can get around DHCP by knowing server host name? 
-server_ip = socket.gethostbyname('raspberrypi')
+try:
+    server_ip = socket.gethostbyname('raspberrypi')
+except socket.gaierror: 
+    # this means could not resolve the host 
+    print ("There was an error resolving the host.")
+    sys.exit() 
+
 #server_ip = '192.168.145.75' # Static IP
 check_ip = True
 while check_ip:
@@ -68,6 +74,8 @@ buffersize = 2048
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+GROUNDClient.connect((server_ip, server_port)) 
+
 # Setting up t1
 t1 = threading.Thread(target=listen, args=(GROUNDClient,buffersize,listeningAddress,data_list))    # Listening
 
@@ -84,7 +92,7 @@ while True:
             continue
         #else:       Everything is OK
         msg = json.dumps(cmmd_req)
-        GROUNDClient.sendto(msg.encode('utf-8'),listeningAddress)
+        GROUNDClient.sendall(msg.encode('utf-8'))
 
         if t1.is_alive():
             continue
@@ -110,7 +118,7 @@ while True:
             continue
         #else: all is OK
         msg = json.dumps(data_req)
-        GROUNDClient.sendto(msg.encode('utf-8'),listeningAddress)
+        GROUNDClient.sendall(msg.encode('utf-8'))
         if t1.is_alive():
             continue
         #else:
@@ -155,10 +163,9 @@ while True:
         # add something to t1 so that when rpi server shutdown message has been recieved, t1 also shuts down
 
     elif (user_input.lower() == "exit"):
-        print("Ending client script")
+        print("Ending TCP connection.")
         #need to check/shutdown other threads, and then join them up here before breaking https://stackoverflow.com/questions/18018033/how-to-stop-a-looping-thread-in-python
         #look at the stack overflow link? (top answer)
-        
         # if t1.is_alive():
         #     print("Attempting to shutdown listening thread.")
         #     GROUNDClient.shutdown(socket.SHUT_RDWR)
