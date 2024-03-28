@@ -48,7 +48,7 @@ def analysis(msg,q):
     q.put({'DATA':[matrix,txt_string]})
     print("(t1): put something")
     if time != None:
-        txt_name = uniquify('health/health_'+time+'.txt')
+        txt_name = uniquify('health/'+time+'.txt')
     else:
         txt_name = uniquify('health.txt') 
     
@@ -94,6 +94,10 @@ def listen(TCPClient, buffersize,listeningAddress,q,data_list):    # listen for 
             continue
         print("(t1) Message recieved from server at ",now_rec," : ",data,"\n")
 
+        if data=='':
+            print("(t1) Lost connection to Pi.")
+            break
+
         try:
             if data[0] == "{" and data[-1] == "}":
                 
@@ -132,10 +136,10 @@ def listen(TCPClient, buffersize,listeningAddress,q,data_list):    # listen for 
                 #print(data)    
         except Exception as err:
             print("(t1) Error: ",err)
-            if data =='':
-                print("(t1) Lost connection to Pi.")
             break
+    q.put({"KILL":True})
     print("(t1) Ending listening thread.")
+    
 
 ### Client -> Server ###
 # Data JSON

@@ -10,19 +10,34 @@ import socket
 import json
 import threading
 import numpy as np
-from funcs_TCP import *
 import matplotlib.pyplot as plt
+from matplotlib import cm,ticker
 import os
 import signal
 import sys
 import subprocess
 import queue
+from funcs_TCP import *
+
+# Stream needs to be added server side
+
+# AOCS to be added:
+# zero point text box input (default = 0) -> gets read when calculating angle
+# manual left/right controls 
+# "hold this attitude" ON/OFF control (IF ON -> cannot use manual controls? ^)
+# Reorientation: text box input of desired angle, button then reads it and sends it to Pi
+
+# AOCS calibration:
+# Orientate correctly without stabilisation enabled
+# Get DATA
+# Manually type out IMU angle into zero point text box and hit OK (this command will overwrite the self.zero_point variable) (+ maybe it could also update the IMU angle text label for real time update, so the user can see their calibration taking effect)
+# IMU is now calibrated
 
 class App:
     def __init__(self, root):
 
         # Backend stuff
-        self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
+        #self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
 
         #setting title
         root.title("Prometheus CubeSat")
@@ -46,49 +61,62 @@ class App:
         root.geometry(alignstr)
         root.resizable(width=False, height=False)
 
+        # Title banner
         GLabel_446=tk.Label(root)
-        GLabel_446["bg"] = "#c18282" #C18282 hex colour
-        ft = tkFont.Font(family='Times',size=18)
-        GLabel_446["font"] = ft
+        GLabel_446["bg"] = "#942911" #C18282 hex colour
+        GLabel_446["font"] = tkFont.Font(family="Helvetica",size=25,weight="bold")
         GLabel_446["fg"] = "#ffffff"
         GLabel_446["justify"] = "center"
         GLabel_446["text"] = "Prometheus CubeSat - BristolSEDS"
         GLabel_446.grid(row=0,sticky='nesw',columnspan=3)
 
-        image1 = Image.open("gui_utility/SDCpatch.png")
-        test = ImageTk.PhotoImage(image1)
-        label1 = tk.Label(image=test)
-        label1.image = test
-        # Position image
+        # Logo image
+        image = Image.open('gui_utility/SDCpatch_opaque.png')
+        image = image.resize((50, 50), Image.ANTIALIAS)
+        logo = ImageTk.PhotoImage(image)
+        label1 = tk.Label(image=logo,borderwidth=0, highlightthickness=0)
+        label1.image = logo
         label1.place(relx=1, rely=0, anchor='ne')
 
-        DataButton=tk.Button(root,text = 'DATA',bg='#90bef2',font=tkFont.Font(family='Times',size=10),fg='#000000',command=self.Data_command)
+        # Buttons
+        buttons_font = tkFont.Font(family="Helvetica",size=10)
+
+        DataButton=tk.Button(root,text = 'DATA',bg='#759FBC',font=buttons_font,fg='#000000',activebackground='#90C3C8',command=self.Data_command)
         DataButton.grid(row=1,column=0,columnspan=2,sticky='nsew')
 
-        ShutdownButton=tk.Button(root,text = 'SHUTDOWN',bg='#90bef2',font=tkFont.Font(family='Times',size=10),fg='#000000',command=self.Shutdown_command)
+        ShutdownButton=tk.Button(root,text = 'SHUTDOWN',bg='#759FBC',font=buttons_font,fg='#000000',activebackground='#90C3C8',command=self.Shutdown_command)
         ShutdownButton.grid(row=2,column=0,columnspan=2,sticky='nsew')
 
-        StreamOnButton=tk.Button(root,text = 'STREAM ON',bg='#90bef2',font=tkFont.Font(family='Times',size=10),fg='#000000',command=self.StreamOn_command)
+        StreamOnButton=tk.Button(root,text = 'STREAM ON',bg='#759FBC',font=buttons_font,fg='#000000',activebackground='#90C3C8',command=self.StreamOn_command)
         StreamOnButton.grid(row=3,column=0,sticky='nsew')
 
-        StreamOffButton=tk.Button(root,text = 'STREAM OFF',bg='#90bef2',font=tkFont.Font(family='Times',size=10),fg='#000000',command=self.StreamOff_command)
+        StreamOffButton=tk.Button(root,text = 'STREAM OFF',bg='#759FBC',font=buttons_font,fg='#000000',activebackground='#90C3C8',command=self.StreamOff_command)
         StreamOffButton.grid(row=3,column=1,sticky='nsew')
 
-        placeholder_text = "Time: 0 \nVoltage: 0 \nTemp: 0 degC \nPi Ip: 0 \nWLAN: 0"
+        placeholder_text = "MOST RECENT DATA PACKET\nTime: 0 \nVoltage: 0 \nTemp: 0 degC \nPi Ip: 0 \nWLAN: 0"
         self.TextHealth = tk.Label(root, height = 5, width = 52,text=placeholder_text,justify='left',anchor='w')
         self.TextHealth.grid(row=6,column=0,columnspan=2,sticky='nsew')
 
         self.fig = plt.figure(figsize=(4, 5))
-        plt.imshow(np.zeros((8,8)),cmap='hot')
-
-        # specify the window as master
+        placeholder_image = plt.imread("gui_utility/SDCpatch_fullsize.png")
+        plt.imshow(placeholder_image)
+        #plt.imshow(np.zeros((8,8)),cmap='hot')   # Placeholder plot
+        #self.fig.colorbar(cm.ScalarMappable(norm=None, cmap='hot'))
+        #self.fig.suptitle("TCAM Image",y=0.85)
+        plt.axis('off')
         self.canvas = FigureCanvasTkAgg(self.fig, master=root) # A tk.DrawingArea
         self.canvas.get_tk_widget().grid(row=1, column=2,rowspan=6,sticky='nsew')
-        #canvas.draw()
 
         root.after(1,self.Refresher)
         root.mainloop()
 
+    def close(self):
+        self.TCPsocket.shutdown(socket.SHUT_RDWR)
+        if self.t1.is_alive():
+            self.t1.join()
+        self.TCPsocket.close()
+        root.destroy()
+    
     def on_closing(self):
         if messagebox.askokcancel("Quit", "Do you want to quit? Client will disconnect from the Pi."):
             print("Ending TCP connection.")
@@ -101,14 +129,12 @@ class App:
             #     t1.join()
             #     print("Listening thread successfully terminated.")
             print("\nClosing socket.")
-            self.TCPsocket.shutdown(socket.SHUT_RDWR)
-            if self.t1.is_alive():
-                self.t1.join()
-            self.TCPsocket.close()
-            root.destroy()
+            self.close()
 
     def draw_chart(self,matrix):
         self.fig.clear()
+        self.fig.suptitle("TCAM Image",y=0.85)
+        self.fig.colorbar(cm.ScalarMappable(norm=None, cmap='hot'))
         self.fig.add_subplot(111).imshow(matrix,interpolation='hermite',cmap='hot') #generate random x/y
         self.canvas.draw_idle()
 
@@ -119,11 +145,15 @@ class App:
             data = self.q.get() # Get data from the queue 
             data_keysList = list(data.keys())   # Extract keys
 
-            if data_keysList[0] == "DATA":  # One-off data request
+            if data_keysList[0] == "KILL":
+                self.close()
+
+            elif data_keysList[0] == "DATA":  # One-off data request
                 # get image and health data from queue
+                # write code to calculate IMU angle from raw IMU data using self.zero_point (= 0 by default before calibration - will need a calibration button + function to change it)
                 matrix = data["DATA"][0]
                 self.draw_chart(matrix)
-                self.TextHealth.config(text=data["DATA"][1])
+                self.TextHealth.config(text="MOST RECENT DATA PACKET\n" + str(data["DATA"][1]))
 
             elif data_keysList[0] == "STREAM":
                 print("Update plot only")
