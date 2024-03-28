@@ -12,6 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
+import queue
 
 # Increment file name if exists already
 def uniquify(path):
@@ -32,7 +33,7 @@ def quick_plot(matrix):
     plt.show()
 
 # Data analysis
-def analysis(msg):
+def analysis(msg,q):
     # health.txt file (these will just be = None if not requested)
     time = msg["TIME"]
     volts = msg["VOLT"]
@@ -44,6 +45,8 @@ def analysis(msg):
 
     txt_string = "Time: %s \nVoltage: %s \nTemp: %s degC \nPi Ip: %s \nWLAN: %s" % (time,volts,temp,ipad,wlan)
     # If no time requested in data request, filename will just be health.txt, need uniquify func to increment filename
+    q.put({'DATA':[matrix,txt_string]})
+    print("(t1): put something")
     if time != None:
         txt_name = uniquify('health/health_'+time+'.txt')
     else:
@@ -55,23 +58,23 @@ def analysis(msg):
     if matrix == None:
         print("Data analysis complete")
     else:
-        # Plotting
-        plt.imshow(matrix,cmap='hot',interpolation='hermite')
-        plt.colorbar()
-        if time != None:
-            figname = uniquify('images/tcam_'+time+'.pdf')
-        else:
-            figname = uniquify('tcam.pdf') 
+        # # Plotting
+        # plt.imshow(matrix,cmap='hot',interpolation='hermite')
+        # plt.colorbar()
+        # if time != None:
+        #     figname = uniquify('images/tcam_'+time+'.pdf')
+        # else:
+        #     figname = uniquify('tcam.pdf') 
 
-        plt.savefig(figname,dpi=200)
-        plt.close('all')
-        #plt.show()
+        # plt.savefig(figname,dpi=200)
+        # plt.close('all')
+
         print("Data analysis finished")
         
 
 
 # Listening in parallel process/thread
-def listen(TCPClient, buffersize,listeningAddress,data_list):    # listen for incoming messages
+def listen(TCPClient, buffersize,listeningAddress,q,data_list):    # listen for incoming messages
     print("(t1) Starting listening thread.\n")
     TCPClient.settimeout(600.0)  # Listening thread will close after 10 mins
     while True:
@@ -119,7 +122,7 @@ def listen(TCPClient, buffersize,listeningAddress,data_list):    # listen for in
                 elif len(keysList) == len(data_list):
                     # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
                     print("(t1) Is a DATA packet")
-                    analysis(msg)
+                    analysis(msg,q)
                 else:
                     print("(t1) Error: JSON contents not recognised.")
             
