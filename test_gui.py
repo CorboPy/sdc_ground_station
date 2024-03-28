@@ -4,14 +4,16 @@ from tkinter import messagebox
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from datetime import datetime
 import time
 import socket
 import json
 import threading
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib import cm,ticker
+import matplotlib
+matplotlib.use('TkAgg')
 import os
 import signal
 import sys
@@ -72,7 +74,7 @@ class App:
 
         # Logo image
         image = Image.open('gui_utility/SDCpatch_opaque.png')
-        image = image.resize((50, 50), Image.ANTIALIAS)
+        image = image.resize((50, 50))
         logo = ImageTk.PhotoImage(image)
         label1 = tk.Label(image=logo,borderwidth=0, highlightthickness=0)
         label1.image = logo
@@ -97,13 +99,15 @@ class App:
         self.TextHealth = tk.Label(root, height = 5, width = 52,text=placeholder_text,justify='left',anchor='w')
         self.TextHealth.grid(row=6,column=0,columnspan=2,sticky='nsew')
 
-        self.fig = plt.figure(figsize=(4, 5))
-        placeholder_image = plt.imread("gui_utility/SDCpatch_fullsize.png")
-        plt.imshow(placeholder_image)
-        #plt.imshow(np.zeros((8,8)),cmap='hot')   # Placeholder plot
-        #self.fig.colorbar(cm.ScalarMappable(norm=None, cmap='hot'))
-        #self.fig.suptitle("TCAM Image",y=0.85)
-        plt.axis('off')
+        self.fig, self.ax = plt.subplots(figsize=(4, 5))
+        #placeholder_image = plt.imread("gui_utility/SDCpatch_fullsize.png")
+        #self.ax.imshow(placeholder_image)
+        self.ax.imshow(np.zeros((8,8)),cmap='hot')   # Placeholder plot
+        self.divider = make_axes_locatable(self.ax)
+        self.cax = self.divider.append_axes('right', size='5%', pad=0.05)
+        self.fig.colorbar(cm.ScalarMappable(norm=None, cmap='hot'),pad=0.2,cax=self.cax)
+        self.fig.suptitle("TCAM Image",y=0.85)
+        # plt.axis('off')
         self.canvas = FigureCanvasTkAgg(self.fig, master=root) # A tk.DrawingArea
         self.canvas.get_tk_widget().grid(row=1, column=2,rowspan=6,sticky='nsew')
 
@@ -132,11 +136,14 @@ class App:
             self.close()
 
     def draw_chart(self,matrix):
-        self.fig.clear()
+        
+        self.ax.clear()
+        self.canvas.draw()
         self.fig.suptitle("TCAM Image",y=0.85)
-        self.fig.colorbar(cm.ScalarMappable(norm=None, cmap='hot'))
-        self.fig.add_subplot(111).imshow(matrix,interpolation='hermite',cmap='hot') #generate random x/y
+        im = self.ax.imshow(matrix,interpolation='hermite',cmap='hot') 
+        self.fig.colorbar(im,pad=0.2,cax=self.cax)
         self.canvas.draw_idle()
+        self.fig.canvas.flush_events()
 
     def Refresher(self):
 
