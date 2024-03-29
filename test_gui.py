@@ -1,5 +1,6 @@
 import tkinter as tk
 import tkinter.font as tkFont
+from tkinter import *
 from tkinter import messagebox
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
@@ -35,11 +36,27 @@ from funcs_TCP import *
 # Manually type out IMU angle into zero point text box and hit OK (this command will overwrite the self.zero_point variable) (+ maybe it could also update the IMU angle text label for real time update, so the user can see their calibration taking effect)
 # IMU is now calibrated
 
+class LabeledEntry(tk.Entry):
+    def __init__(self, master=None, label="Search", **kwargs):
+        tk.Entry.__init__(self, master, **kwargs)
+        self.label = label
+        self.on_exit()
+        self.bind('<FocusIn>', self.on_entry)
+        self.bind('<FocusOut>', self.on_exit)
+
+    def on_entry(self, event=None):
+        if self.get() == self.label:
+            self.delete(0, tk.END)
+
+    def on_exit(self, event=None):
+        if not self.get():
+            self.insert(0, self.label)
+
 class App:
     def __init__(self, root):
 
         # Backend stuff
-        self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
+        #self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
 
         #setting title
         root.title("Prometheus CubeSat")
@@ -80,6 +97,10 @@ class App:
         label1.image = logo
         label1.place(relx=1, rely=0, anchor='ne')
 
+        # Text box for AOCS zero point
+        self.ZeroEntry = LabeledEntry(root,label='Insert IMU Zero Point')
+        self.ZeroEntry.grid(row=4,column=0,sticky='nsew')
+
         # Buttons
         buttons_font = tkFont.Font(family="Helvetica",size=10)
 
@@ -95,10 +116,15 @@ class App:
         StreamOffButton=tk.Button(root,text = 'STREAM OFF',bg='#759FBC',font=buttons_font,fg='#000000',activebackground='#90C3C8',command=self.StreamOff_command)
         StreamOffButton.grid(row=3,column=1,sticky='nsew')
 
+        ReadZeroButton=tk.Button(root, text= "Update", bg='#1F5673',fg='#ffffff',font=buttons_font,command= self.Imu_zero_read)
+        ReadZeroButton.grid(row=4,column=1,sticky='nsew')
+
+        # Health data text label
         placeholder_text = "MOST RECENT DATA PACKET\nTime: 0 \nVoltage: 0 \nTemp: 0 degC \nPi Ip: 0 \nWLAN: 0"
         self.TextHealth = tk.Label(root, height = 5, width = 52,text=placeholder_text,justify='left',anchor='w')
         self.TextHealth.grid(row=6,column=0,columnspan=2,sticky='nsew')
 
+        # Matplotlib tk widget
         self.fig, self.ax = plt.subplots(figsize=(4, 5))
         #placeholder_image = plt.imread("gui_utility/SDCpatch_fullsize.png")
         #self.ax.imshow(placeholder_image)
@@ -136,7 +162,6 @@ class App:
             self.close()
 
     def draw_chart(self,matrix):
-        
         self.ax.clear()
         self.canvas.draw()
         self.fig.suptitle("TCAM Image",y=0.85)
@@ -146,7 +171,6 @@ class App:
         self.fig.canvas.flush_events()
 
     def Refresher(self):
-
         if not self.q.empty():
             #print("\nQueue not empty\n")
             data = self.q.get() # Get data from the queue 
@@ -202,6 +226,21 @@ class App:
         print("command")
     def StreamOff_command(self):
         print("command")
+
+    def Imu_zero_read(self):
+        entry = self.ZeroEntry.get()
+        print(type(entry),entry)
+        if entry=='Insert IMU Zero Point':
+            return()
+        # msg = json.dumps(entry)
+        # self.TCPsocket.sendall(msg.encode('utf-8'))
+        # if self.t1.is_alive():
+        #     return()
+        # #else:
+        # self.t1.start()
+        # return()
+
+        # send IMU zero point JSON
 
 ########################################################################
 
