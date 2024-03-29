@@ -2,6 +2,7 @@ import customtkinter as tk
 tk.set_appearance_mode("Light")
 from tkinter import *
 from tkinter import messagebox
+from tkdial import Meter
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -68,7 +69,7 @@ class App:
         root.columnconfigure((0,1),weight=1,uniform='a')
         root.columnconfigure(2,weight=5,uniform='a')
         root.rowconfigure((0,1,2,3,4),weight=1,uniform='a')
-        root.rowconfigure(5,weight=4,uniform='a')
+        root.rowconfigure(5,weight=5,uniform='a')
         root.rowconfigure(6,weight=1,uniform='a')
         root.rowconfigure(7,weight=4,uniform='a')
 
@@ -102,6 +103,9 @@ class App:
         # Text box for AOCS zero point
         self.ZeroEntry = LabeledEntry(root,label='Insert IMU Zero Point')
         self.ZeroEntry.grid(row=6,column=0)
+        self.zeropoint = 0
+        # Need to create a self.variable that = 0 by default and = ZeroEntry when button is pressed
+        # Need to create a label that displays the zero point variable
 
         # Buttons
         #buttons_font = tkFont.Font(family="Helvetica",size=10)
@@ -120,6 +124,14 @@ class App:
 
         ReadZeroButton=tk.CTkButton(root, text= "Update",command= self.Imu_zero_read,fg_color='grey',hover_color='#942911')
         ReadZeroButton.grid(row=6,column=1,padx=10)
+
+        # IMU angle meter dial
+        self.AngleDial = Meter(root, fg="#EBEBEB", radius=350, start=0, end=360,
+            major_divisions=30, border_width=0, text_color="black",
+            start_angle=0, end_angle=-360, scale_color="black", axis_color="black",
+            needle_color="#942911",  scroll_steps=0.2,text_font=tk.CTkFont(family="Helvetica",size=30,weight='bold'))
+        self.AngleDial.set(180)
+        self.AngleDial.grid(row=5, column=0,columnspan=2, pady=30)
 
         # Health data text label
         placeholder_text = "\nTime: 0 \nVoltage: 0 \nTemp: 0 degC \nPi Ip: 0 \nWLAN: 0"
@@ -151,7 +163,7 @@ class App:
         root.destroy()
     
     def on_closing(self):
-        if messagebox.askokcancel("Quit", "Do you want to quit? Client will disconnect from the Pi."):
+        if messagebox.askyesno("Quit", "Do you want to quit? Client will disconnect from the Pi."):
             print("Ending TCP connection.")
             #need to check/shutdown other threads, and then join them up here before breaking https://stackoverflow.com/questions/18018033/how-to-stop-a-looping-thread-in-python
             #look at the stack overflow link? (top answer)
@@ -173,7 +185,16 @@ class App:
         self.canvas.draw_idle()
         self.fig.canvas.flush_events()
 
-    def Refresher(self):
+    def append_txt(self,calibrated_angle,dir):
+        # append calibrated angle and append zero point?
+        with open(dir, "a") as f: 
+            f.write(" \nZero Point: %s \nCalibrated Angle: %s" % (str(self.zeropoint),str(calibrated_angle))) 
+
+    def zero_point_recalc(self,angz):
+        calibrated_angle = self.zeropoint - angz
+        return(calibrated_angle)
+
+    def Refresher(self):    # NEED TO ENSURE ALL POINTS OF FAILURE DONT STOP CALLING REFRESH
         if not self.q.empty():
             #print("\nQueue not empty\n")
             data = self.q.get() # Get data from the queue 
@@ -187,7 +208,19 @@ class App:
                 # write code to calculate IMU angle from raw IMU data using self.zero_point (= 0 by default before calibration - will need a calibration button + function to change it)
                 matrix = data["DATA"][0]
                 self.draw_chart(matrix)
-                self.TextHealth.config(text="MOST RECENT DATA PACKET\n" + str(data["DATA"][1]))
+                self.TextHealth.config(text=str(data["DATA"][1]))
+
+                try:
+                    angz = float(data["DATA"][2])
+                except Exception as err:
+                    print("Error, unable to update IMU angle: ",err)
+                    root.after(1000,self.Refresher)
+                    return()
+                
+                angz_calibrated = self.zero_point_recalc(angz)
+                self.append_txt(angz_calibrated,data["DATA"][3])
+
+                self.AngleDial.set(angz_calibrated) # Update dial orientation angle 
 
             elif data_keysList[0] == "STREAM":
                 print("Update plot only")
@@ -216,14 +249,15 @@ class App:
         return()
       
     def Shutdown_command(self):
-        msg = json.dumps({"SHUTDOWN":True})
-        self.TCPsocket.sendall(msg.encode('utf-8'))
-        if not self.t1.is_alive():
-            self.t1.start()
-        time.sleep(3)
-        self.t1.join()
-        print("Ending client.")
-        root.destroy()
+        if messagebox.askyesno("Shutdown Pi", "Are you sure you want to shutdown the Pi? This will also close the client."):
+            msg = json.dumps({"SHUTDOWN":True})
+            self.TCPsocket.sendall(msg.encode('utf-8'))
+            if not self.t1.is_alive():
+                self.t1.start()
+            time.sleep(3)
+            self.t1.join()
+            print("Ending client.")
+            root.destroy()
 
     def StreamOn_command(self):
         print("command")
@@ -235,15 +269,9 @@ class App:
         print(type(entry),entry)
         if entry=='Insert IMU Zero Point':
             return()
-        # msg = json.dumps(entry)
-        # self.TCPsocket.sendall(msg.encode('utf-8'))
-        # if self.t1.is_alive():
-        #     return()
-        # #else:
-        # self.t1.start()
-        # return()
+        self.zeropoint = float(entry)
+        # update zero point label?
 
-        # send IMU zero point JSON
 
 ########################################################################
 

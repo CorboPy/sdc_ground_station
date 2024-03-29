@@ -34,7 +34,7 @@ def get_pi_ip():    # Using mac address
 
 def main():
 
-    data_list=["TIME","TCAM","VOLT","TEMP","IPAD","WLAN"] # For additional identifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
+    data_list=["TIME","TCAM","VOLT","TEMP","IPAD","WLAN","ANGZ"] # For additional identifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
     cmmd_list=["AOCS","CMD2","CMD3"] # For additional identifiable 4-character cmmd's, add them here and then add them to parse_cmd() in funcs.py!!!!!!
     cmmd_params=[3,2,1]     # NUMBER OF PARAMS FOR COMMAND IN cmmd_list (MUST BE IN SAME ORDER!!!)
 

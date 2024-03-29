@@ -41,16 +41,20 @@ def analysis(msg,q):
     temp = msg["TEMP"]
     ipad = msg["IPAD"]
     wlan = msg["WLAN"]
+    angz = msg["ANGZ"]
     matrix = msg["TCAM"]
 
-    txt_string = "Time: %s \nVoltage: %s \nTemp: %s degC \nPi Ip: %s \nWLAN: %s" % (time,volts,temp,ipad,wlan)
+    txt_string = "Time: %s \nVoltage: %s \nTemp: %s degC \nPi Ip: %s \nWLAN: %s \nIMU z-angle: %s" % (time,volts,temp,ipad,wlan,angz)
+
     # If no time requested in data request, filename will just be health.txt, need uniquify func to increment filename
-    q.put({'DATA':[matrix,txt_string]})
-    print("(t1): put something")
     if time != None:
         txt_name = uniquify('health/'+time+'.txt')
     else:
-        txt_name = uniquify('health.txt') 
+        txt_name = uniquify('health/health.txt') 
+    
+    # Send to main thread
+    q.put({'DATA':[matrix,txt_string,angz,txt_name]})
+    print("(t1): put something")
     
     with open(txt_name, 'w') as f:
         f.writelines(txt_string)
