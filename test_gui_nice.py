@@ -57,7 +57,7 @@ class App:
     def __init__(self, root):
 
         # Backend stuff
-        #self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
+        self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
 
         #setting title
         root.title("Prometheus CubeSat")
@@ -71,7 +71,7 @@ class App:
         root.rowconfigure((0,1,2,3,4),weight=1,uniform='a')
         root.rowconfigure(5,weight=5,uniform='a')
         root.rowconfigure(6,weight=1,uniform='a')
-        root.rowconfigure(7,weight=4,uniform='a')
+        root.rowconfigure(7,weight=3,uniform='a')
 
         #setting window size
         width=1280
@@ -90,15 +90,8 @@ class App:
         # #GLabel_446["justify"] = "center"
         GLabel_446.grid(row=0,sticky='nesw',columnspan=2)
 
-        # Logo image
-        # image = Image.open('gui_utility/SDCpatch_fullsize.png')
-        # image = image.resize((100, 100))
-        # logo = ImageTk.PhotoImage(image)
-        #label1 = tk.CTkLabel(root,image=logo,text='')
-        #label1.image = logo
-        #label1.place(relx=1, rely=0, anchor='nw')
-        #label1.grid(column=0,row=0, sticky='nw')
-        root.iconbitmap(r"C:\Users\alexc\Documents\Git\sdc_ground_station\gui_utility\SDCpatch_fullsize.ico")
+        # App icon
+        root.iconbitmap("gui_utility/SDCpatch_fullsize.ico")
 
         # Text box for AOCS zero point
         self.ZeroEntry = LabeledEntry(root,label='Insert IMU Zero Point')
@@ -126,17 +119,17 @@ class App:
         ReadZeroButton.grid(row=6,column=1,padx=10)
 
         # IMU angle meter dial
-        self.AngleDial = Meter(root, fg="#EBEBEB", radius=350, start=0, end=360,
-            major_divisions=30, border_width=0, text_color="black",
-            start_angle=0, end_angle=-360, scale_color="black", axis_color="black",
+        self.AngleDial = Meter(root, fg="#EBEBEB", radius=250, start=-180, end=180,
+            major_divisions=30, minor_divisions=15,border_width=0, text_color="black",
+            start_angle=270, end_angle=-360, scale_color="black", axis_color="black",
             needle_color="#942911",  scroll_steps=0.2,text_font=tk.CTkFont(family="Helvetica",size=30,weight='bold'))
-        self.AngleDial.set(180)
+        self.AngleDial.set(0)
         self.AngleDial.grid(row=5, column=0,columnspan=2, pady=30)
 
         # Health data text label
         placeholder_text = "\nTime: 0 \nVoltage: 0 \nTemp: 0 degC \nPi Ip: 0 \nWLAN: 0"
         self.TextHealth = tk.CTkLabel(root, height = 5, width = 52,text=placeholder_text,justify='left',anchor='w',font=tk.CTkFont(family="Courier New",size=13,weight='bold'))
-        self.TextHealth.grid(row=7,column=0,sticky='nw',padx=25)
+        self.TextHealth.grid(row=7,column=0,columnspan=2,sticky='nw',padx=25)
 
         # Matplotlib tk widget
         self.fig, self.ax = plt.subplots(figsize=(4, 5),facecolor ='#D4D4D4')
@@ -165,21 +158,12 @@ class App:
     def on_closing(self):
         if messagebox.askyesno("Quit", "Do you want to quit? Client will disconnect from the Pi."):
             print("Ending TCP connection.")
-            #need to check/shutdown other threads, and then join them up here before breaking https://stackoverflow.com/questions/18018033/how-to-stop-a-looping-thread-in-python
-            #look at the stack overflow link? (top answer)
-            # if t1.is_alive():
-            #     print("Attempting to shutdown listening thread.")
-            #     GROUNDClient.shutdown(socket.SHUT_RDWR)
-            #     print("Waiting for thread to finish...")
-            #     t1.join()
-            #     print("Listening thread successfully terminated.")
             print("\nClosing socket.")
             self.close()
 
     def draw_chart(self,matrix):
         self.ax.clear()
         self.canvas.draw()
-        self.fig.suptitle("TCAM Image",y=0.85)
         im = self.ax.imshow(matrix,interpolation='hermite',cmap='hot') 
         self.fig.colorbar(im,pad=0.2,cax=self.cax)
         self.canvas.draw_idle()
@@ -191,7 +175,7 @@ class App:
             f.write(" \nZero Point: %s \nCalibrated Angle: %s" % (str(self.zeropoint),str(calibrated_angle))) 
 
     def zero_point_recalc(self,angz):
-        calibrated_angle = self.zeropoint - angz
+        calibrated_angle = angz - self.zeropoint
         return(calibrated_angle)
 
     def Refresher(self):    # NEED TO ENSURE ALL POINTS OF FAILURE DONT STOP CALLING REFRESH
@@ -208,7 +192,7 @@ class App:
                 # write code to calculate IMU angle from raw IMU data using self.zero_point (= 0 by default before calibration - will need a calibration button + function to change it)
                 matrix = data["DATA"][0]
                 self.draw_chart(matrix)
-                self.TextHealth.config(text=str(data["DATA"][1]))
+                self.TextHealth.configure(text=str(data["DATA"][1]))
 
                 try:
                     angz = float(data["DATA"][2])
@@ -219,19 +203,27 @@ class App:
                 
                 angz_calibrated = self.zero_point_recalc(angz)
                 self.append_txt(angz_calibrated,data["DATA"][3])
-
                 self.AngleDial.set(angz_calibrated) # Update dial orientation angle 
 
             elif data_keysList[0] == "STREAM":
-                print("Update plot only")
-                # get image data
-                # plot it and refresh tkinter GUI
+                print("Update plot and IMU angle only")
+                # first entry in list value is matrix
+                matrix = data["STREAM"][0]
+                self.draw_chart(matrix)
+                # second entry in list value is IMU angle
+                try:
+                    angz = float(data["STREAM"][1])
+                except Exception as err:
+                    print("Error, unable to update IMU angle: ",err)
+                    root.after(200,self.Refresher)
+                    return()
+                angz_calibrated = self.zero_point_recalc(angz)
+                self.AngleDial.set(angz_calibrated) # Update dial orientation angle 
+
             else:
                 print("Error: data from thread queue not identifiable.")
-            #txt_string = "Time: null \nVoltage: null \nTemp: null degC \nPi Ip: null \nWLAN: %s" % np.random.randint(100)
-        #else:
-            #print("Queue empty")
-        root.after(1000,self.Refresher)
+
+        root.after(200,self.Refresher)  # Must be less than the stream frame rate
 
     def Data_command(self):
         data_req = get_data_req()
@@ -260,9 +252,14 @@ class App:
             root.destroy()
 
     def StreamOn_command(self):
-        print("command")
+        msg = json.dumps({"STREAM":True})
+        self.TCPsocket.sendall(msg.encode('utf-8'))
+        if not self.t1.is_alive():
+            self.t1.start()
     def StreamOff_command(self):
-        print("command")
+        msg = json.dumps({"STREAM":False})
+        self.TCPsocket.sendall(msg.encode('utf-8'))
+        # t1 should already be running
 
     def Imu_zero_read(self):
         entry = self.ZeroEntry.get()
@@ -270,7 +267,10 @@ class App:
         if entry=='Insert IMU Zero Point':
             return()
         self.zeropoint = float(entry)
-        # update zero point label?
+        print("Zero point updated")
+        # update zero point label and dial?
+        oldangle = self.AngleDial.get()
+        self.AngleDial.set(self.zero_point_recalc(float(oldangle)))
 
 
 ########################################################################
@@ -339,7 +339,7 @@ def network_setup():
         time.sleep(5)
     print("Connection establised!\n")
 
-    data_list=["TIME","TCAM","VOLT","TEMP","IPAD","WLAN"] # For additional identifiable data reqs, add them here and then add them to parse_data() in funcs.py!!!!!!
+    data_list=["TIME","TCAM","VOLT","TEMP","IPAD","WLAN","ANGZ"] # For additional identifiable data reqs, add them here and then add them to parse_data() in funcs_TCP.py!!!!!!
     
     q = queue.Queue()
     t1 = threading.Thread(target=listen, args=(GROUNDClient,buffersize,listeningAddress,q,data_list))    # Listening
@@ -349,100 +349,6 @@ def network_setup():
     return(GROUNDClient,listeningAddress,t1,data_list,q)
 
     #############
-
-    # while True:
-    #     user_input = input("Please input a command: 'DATA' for data request, 'COMMAND' to send a command, 'STREAM' for TCAM stream, 'SHUTDOWN' to shutdown server (implement full Pi p-off later), 'EXIT' to close client: \n")
-
-    #     if (user_input.lower() == "command"):   #check command first, want to be quick
-    #         cmmd_req = get_cmmd_req(cmmd_list,cmmd_params)
-    #         if cmmd_req == False:
-    #             print("Returning to menu...")
-    #             continue
-    #         elif isinstance(cmmd_req, dict) == False:  
-    #             print("Error: cmmd_req not a dictionary. Returning to menu...")
-    #             continue
-    #         #else:       Everything is OK
-    #         msg = json.dumps(cmmd_req)
-    #         GROUNDClient.sendall(msg.encode('utf-8'))
-
-    #         if t1.is_alive():
-    #             continue
-    #         #else:
-    #         t1.start()
-    #         #need to add try excepts to catch errors in the code above ^
-        
-    #     elif (user_input.lower() == "data"):
-            
-    #         data_req = get_data_req()
-
-    #         if data_req == None:
-    #             print("Error, resetting...")
-    #             continue
-    #         #else: all is OK
-    #         msg = json.dumps(data_req)
-    #         GROUNDClient.sendall(msg.encode('utf-8'))
-    #         if t1.is_alive():
-    #             continue
-    #         #else:
-    #         t1.start()
-
-    #         #need to add try excepts to catch errors in the code above ^
-
-    #     elif (user_input.lower() == "stream"):
-    #         confirm_stream = None
-    #         while (confirm_stream.lower() == 'exit') or (confirm_stream.lower() == 'start') or (confirm_stream.lower() == 'end'):
-    #             confirm_stream = input("STREAM: To start, type 'Start'. To end, type 'End'. Or, to exit this menu, type 'Exit':")
-            
-    #         if confirm_stream.lower() == 'exit':
-    #             print("Returning to menu...")
-    #             continue
-
-    #         elif confirm_stream.lower() == 'start':
-    #             msg = json.dumps({"STREAM":True})
-    #             GROUNDClient.sendall(msg.encode('utf-8'))
-            
-    #         elif confirm_stream.lower() == 'end':
-    #             msg = json.dumps({"STREAM":False})
-    #             GROUNDClient.sendall(msg.encode('utf-8'))
-
-    #         if t1.is_alive():
-    #             continue
-    #         #else:
-    #         t1.start()
-    #         #need to add try excepts to catch errors in the code above ^
-        
-    #     elif (user_input.lower() == "shutdown"):
-    #         print("(not yet implimented) shutting down server....")
-    #         msg = json.dumps({"SHUTDOWN":True})
-    #         GROUNDClient.sendall(msg.encode('utf-8'))
-    #         if not t1.is_alive():
-    #             t1.start()
-    #         time.sleep(3)
-    #         t1.join()
-    #         print("Ending client.")
-    #         break
-  
-    #     elif (user_input.lower() == "exit"):
-    #         print("Ending TCP connection.")
-    #         #need to check/shutdown other threads, and then join them up here before breaking https://stackoverflow.com/questions/18018033/how-to-stop-a-looping-thread-in-python
-    #         #look at the stack overflow link? (top answer)
-    #         # if t1.is_alive():
-    #         #     print("Attempting to shutdown listening thread.")
-    #         #     GROUNDClient.shutdown(socket.SHUT_RDWR)
-    #         #     print("Waiting for thread to finish...")
-    #         #     t1.join()
-    #         #     print("Listening thread successfully terminated.")
-    #         print("\nClosing socket.")
-    #         GROUNDClient.shutdown(socket.SHUT_RDWR)
-    #         if t1.is_alive():
-    #             t1.join()
-    #         GROUNDClient.close()
-
-    #         break
-    #     else:
-    #         print("Unidentified input, please try again.")
-
-    # print("Escaped successfully. Goodbye.")
 
 if __name__ == "__main__":
     root = tk.CTk()

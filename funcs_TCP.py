@@ -124,7 +124,7 @@ def listen(TCPClient, buffersize,listeningAddress,q,data_list):    # listen for 
                 if (keysList[0] == "STREAM") and (len(keysList)==1):
                     # Stream JSON {"STREAM": [8x8 matrix]}
                     print("(t1) Is a STREAM data packet")
-                    quick_plot(msg["STREAM"])
+                    q.put(msg)
                     # Send to plot function (still part of p1)
 
                 elif len(keysList) == len(data_list):
