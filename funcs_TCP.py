@@ -7,7 +7,6 @@ import socket
 import json
 import threading
 import numpy as np
-from funcs import *
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
