@@ -1,0 +1,7 @@
+This is a list of recognised commands and their parameters.
+As commands are implemented into the code, they will be added here.
+
+CMMD(param1,param2,param3,etc)
+
+AOCS(angle,)
+Units: angle (degrees), 
