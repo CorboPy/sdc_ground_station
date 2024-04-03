@@ -56,7 +56,7 @@ class App:
     def __init__(self, root):
 
         # Backend stuff
-        self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
+        #self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
 
         #setting title
         root.title("Prometheus CubeSat")
@@ -83,10 +83,6 @@ class App:
 
         # Title banner
         GLabel_446=tk.CTkLabel(root,text="Prometheus CubeSat",font=tk.CTkFont(family="Helvetica",size=25,weight='bold'),text_color='#942911',bg_color='#1A1A1A')
-        # #GLabel_446["bg"] = "#942911" #C18282 hex colour
-        # #GLabel_446["font"] = 
-        # #GLabel_446["fg"] = "#ffffff"
-        # #GLabel_446["justify"] = "center"
         GLabel_446.grid(row=0,sticky='nesw',columnspan=2)
 
         # App icon
@@ -96,8 +92,6 @@ class App:
         self.ZeroEntry = LabeledEntry(root,label='Insert IMU Zero Point')
         self.ZeroEntry.grid(row=6,column=0)
         self.zeropoint = 0
-        # Need to create a self.variable that = 0 by default and = ZeroEntry when button is pressed
-        # Need to create a label that displays the zero point variable
 
         # Buttons
         #buttons_font = tkFont.Font(family="Helvetica",size=10)
@@ -105,7 +99,7 @@ class App:
         DataButton=tk.CTkButton(root,text = 'DATA',command=self.Data_command,fg_color='grey',hover_color='#942911')
         DataButton.grid(row=1,column=0,padx=10)
 
-        ShutdownButton=tk.CTkButton(root,text = 'SHUTDOWN',command=self.Shutdown_command,fg_color='grey',hover_color='#942911')
+        ShutdownButton=tk.CTkButton(root,text = 'SHUTDOWN PI',command=self.Shutdown_command,fg_color='grey',hover_color='#942911')
         ShutdownButton.grid(row=1,column=1,padx=10)
 
         StreamOnButton=tk.CTkButton(root,text = 'STREAM ON',command=self.StreamOn_command,fg_color='grey',hover_color='#942911')
@@ -116,6 +110,19 @@ class App:
 
         ReadZeroButton=tk.CTkButton(root, text= "Update",command= self.Imu_zero_read,fg_color='grey',hover_color='#942911')
         ReadZeroButton.grid(row=6,column=1,padx=10)
+
+        # AOCS Buttons
+        self.jobid = None
+
+        LeftButton = tk.CTkButton(root, text="LEFT",fg_color='#3D5A80',hover_color='#293241',cursor="hand2")
+        LeftButton.grid(row=3,column=0,padx=10)
+        LeftButton.bind('<ButtonPress-1>', lambda event, direction='LEFT': self.start_motor(direction))
+        LeftButton.bind('<ButtonRelease-1>', lambda event: self.stop_motor())
+
+        RightButton = tk.CTkButton(root, text="RIGHT",fg_color='#3D5A80',hover_color='#293241',cursor="hand2")
+        RightButton.grid(row=3,column=1,padx=10)
+        RightButton.bind('<ButtonPress-1>', lambda event, direction='RIGHT': self.start_motor(direction))
+        RightButton.bind('<ButtonRelease-1>', lambda event: self.stop_motor())
 
         # IMU angle meter dial
         self.AngleDial = Meter(root, fg="#EBEBEB", radius=250, start=-180, end=180,
@@ -270,6 +277,29 @@ class App:
         # update zero point label and dial?
         oldangle = self.AngleDial.get()
         self.AngleDial.set(self.zero_point_recalc(float(oldangle)))
+
+    def move(self,direction):
+        global jobid
+        print("Moving (%s)" % direction)
+        jobid = root.after(1000, self.move, direction)
+
+    def start_motor(self,direction):
+        print("starting motor...(%s)" % direction)
+
+        # MESSAGE TO PI TO START MOTOR (here or below move()?)
+        # Left = counterclockwise
+        # Right = clockwise
+
+        self.move(direction)
+
+    def stop_motor(self):
+        global jobid
+        root.after_cancel(jobid)
+
+        # MESSAGE TO PI TO STOP MOTOR
+        
+        print("stopping motor...")
+
 
 
 ########################################################################
