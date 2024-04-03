@@ -26,7 +26,6 @@ from funcs_TCP import *
 # Stream needs to be added server side
 
 # AOCS to be added:
-# zero point text box input (default = 0) -> gets read when calculating angle
 # manual left/right controls 
 # "hold this attitude" ON/OFF control (IF ON -> cannot use manual controls? ^)
 # Reorientation: text box input of desired angle, button then reads it and sends it to Pi
@@ -295,7 +294,9 @@ def network_setup():
         ask_ip=True
 
     while ask_ip:
-        ip_input = input("\nPlease input the Pi IP manually: ")
+        ip_input = input("\nPlease input the Pi IP manually, or type 'EXIT' to exit: ")
+        if ip_input.lower() == 'exit':
+            sys.exit()
         try:
             socket.inet_aton(ip_input)
         except socket.error:
