@@ -56,7 +56,7 @@ class App:
     def __init__(self, root):
 
         # Backend stuff
-        #self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
+        self.TCPsocket,self.address,self.t1,self.data_list,self.q = network_setup()
 
         #setting title
         root.title("Prometheus CubeSat")
