@@ -197,7 +197,7 @@ class App:
                 # get image and health data from queue
                 # write code to calculate IMU angle from raw IMU data using self.zero_point (= 0 by default before calibration - will need a calibration button + function to change it)
                 matrix = data["DATA"][0]
-                self.draw_chart(matrix)
+                self.draw_chart(matrix) # should add buttons to save image?
                 self.TextHealth.configure(text=str(data["DATA"][1]))
 
                 try:
@@ -286,6 +286,11 @@ class App:
     def start_motor(self,direction):
         print("starting motor...(%s)" % direction)
 
+        msg = json.dumps({"MOTOR":direction})
+        self.TCPsocket.sendall(msg.encode('utf-8'))
+        if not self.t1.is_alive():
+            self.t1.start()
+
         # MESSAGE TO PI TO START MOTOR (here or below move()?)
         # Left = counterclockwise
         # Right = clockwise
@@ -296,8 +301,10 @@ class App:
         global jobid
         root.after_cancel(jobid)
 
-        # MESSAGE TO PI TO STOP MOTOR
-        
+        msg = json.dumps({"MOTOR":"STOP"})
+        self.TCPsocket.sendall(msg.encode('utf-8'))
+        if not self.t1.is_alive():
+            self.t1.start()
         print("stopping motor...")
 
 
