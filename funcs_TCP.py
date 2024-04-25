@@ -53,35 +53,34 @@ def analysis(msg,q):
     
     # Send to main thread
     q.put({'DATA':[matrix,txt_string,angz,txt_name]})
-    print("(t1): put something")
+    #print("(t1): put something")
     
     with open(txt_name, 'w') as f:
         f.writelines(txt_string)
 
-    if matrix == None:
-        print("Data analysis complete")
-    else:
-        # # Plotting
-        # plt.imshow(matrix,cmap='hot',interpolation='hermite')
-        # plt.colorbar()
-        # if time != None:
-        #     figname = uniquify('images/tcam_'+time+'.pdf')
-        # else:
-        #     figname = uniquify('tcam.pdf') 
+    print("(t1) Data analysis complete.")
 
-        # plt.savefig(figname,dpi=200)
-        # plt.close('all')
+    # if matrix == None:
+    #     print("(t1) Data analysis complete")
+    # else:
+    #     # # Plotting
+    #     # plt.imshow(matrix,cmap='hot',interpolation='hermite')
+    #     # plt.colorbar()
+    #     # if time != None:
+    #     #     figname = uniquify('images/tcam_'+time+'.pdf')
+    #     # else:
+    #     #     figname = uniquify('tcam.pdf') 
 
-        print("Data analysis finished")
-        
+    #     # plt.savefig(figname,dpi=200)
+    #     # plt.close('all')
 
+    #     print("(t1) Data analysis finished")
 
 # Listening in parallel process/thread
 def listen(TCPClient, buffersize,listeningAddress,q,data_list):    # listen for incoming messages
     print("(t1) Starting listening thread.\n")
     TCPClient.settimeout(600.0)  # Listening thread will close after 10 mins
     while True:
-        #print("(t1) In loop")
         # Recieving a message:
         try:
             data = TCPClient.recv(buffersize)
@@ -95,7 +94,7 @@ def listen(TCPClient, buffersize,listeningAddress,q,data_list):    # listen for 
         except:
             print("(t1) Error: msg not decodable in UTF-8. Bytes lost.")   # Might want to write to a file or print or something so that message isnt completely lost?
             continue
-        print("(t1) Message recieved from server at ",now_rec," : ",data,"\n")
+        print("(t1) Message recieved from server at ",now_rec)
 
         if data=='':
             print("(t1) Lost connection to Pi.")
@@ -124,19 +123,18 @@ def listen(TCPClient, buffersize,listeningAddress,q,data_list):    # listen for 
                     # Stream JSON {"STREAM": [8x8 matrix]}
                     print("(t1) Is a STREAM data packet")
                     q.put(msg)
-                    # Send to plot function (still part of p1)
+                    # Send to plot function (part of main thread)
 
                 elif len(keysList) == len(data_list):
                     # Data JSON {"TCAM":[8x8],"VOLT":5,"TEMP":25}
                     print("(t1) Is a DATA packet")
-                    analysis(msg,q)
+                    analysis(msg,q) # Happens on this thread
                 else:
                     print("(t1) Error: JSON contents not recognised.")
             
             else:
+                print("(t1) Server message caught:",data,"\n")    
                 continue
-                #print("(t1) Message not identified as JSON\n")
-                #print(data)    
         except Exception as err:
             print("(t1) Error: ",err)
             break
